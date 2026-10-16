@@ -40,6 +40,10 @@ TypeORM integration added a shared PostgreSQL configuration for NestJS and the m
 
 Nine configuration tests passed using Node.js's built-in test runner, and strict type checks passed across all workspaces. Live checks confirmed authenticated database access, the API root response, unchanged public tables and CLI configuration loading from the backend directory. Startup checks also verified rejection of missing configuration and an unavailable database. The connection-error check was adjusted to inspect Node.js's aggregate error codes, whose top-level message can be empty.
 
-Product feature tests, entities, migrations, seed, RTK Query, cart behaviour and Docker packaging for the applications remain pending. The current connection settings target local development; production TLS configuration remains outside this step.
+AI assistance defined the product entity and registered it in the shared connection configuration. Prices remain decimal strings in persistence, separate from the numeric public contract. Ratings use separate columns; database constraints enforce identifiers, required fields and value ranges. No timestamps, additional tables or generated identifiers were added.
+
+An integration test was written before the entity and first failed because the entity did not exist. It then passed against PostgreSQL, checking exact price round trips, boundary values and specific database errors for invalid records. The test creates its schema inside a transaction and rolls it back. The distinction between exact decimal storage and PostgreSQL's rounding of excess fractional digits was checked against the [PostgreSQL numeric documentation](https://www.postgresql.org/docs/18/datatype-numeric.html); import precision validation remains pending.
+
+Migrations, seed, RTK Query, cart behaviour and Docker packaging for the applications remain pending. The current connection settings target local development; production TLS configuration remains outside this step.
 
 This record will be updated as code is developed, including accepted or rejected suggestions and the checks used to validate them.

@@ -37,7 +37,7 @@ npm run dev:backend
 
 The frontend runs at [localhost:3000](http://localhost:3000). The backend responds at [localhost:3001/api](http://localhost:3001/api). Only the startup screen and API root are available at this stage.
 
-Check all three workspaces with `npm run typecheck` and run backend configuration tests with `npm test`. Build both applications with `npm run build`. The frontend exports static files to `frontend/out`; the backend compiles to `backend/dist`.
+Check all three workspaces with `npm run typecheck` and run backend configuration tests with `npm test`. With PostgreSQL running, use `npm run test:integration --workspace @home-furniture/backend` to verify product storage constraints in a temporary schema, rolled back after the test. Build both applications with `npm run build`. The frontend exports static files to `frontend/out`; the backend compiles to `backend/dist`.
 
 PostgreSQL is available at `localhost:15432`, mapped to port `5432` inside the container. Set `DB_PORT` in `.env` to change the local port. Data lives in a named Docker volume and survives container recreation and `docker-compose down`.
 
@@ -45,7 +45,7 @@ PostgreSQL creates the database and credentials when the volume is first initial
 
 NestJS and the TypeORM CLI share connection settings from the root `.env`; existing environment variables take precedence. `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` and `DB_PASSWORD` are required. Invalid settings stop startup with a configuration error. Database connections use a five-second timeout per attempt, with up to three attempts at startup.
 
-Automatic schema synchronization and migration execution are disabled. No application tables are created yet. The CLI data source is `backend/src/database/data-source.ts`, compiled to `backend/dist/database/data-source.js`; product entities and migration commands follow in the next steps.
+Automatic schema synchronization and migration execution are disabled. No application tables are created yet. The CLI data source is `backend/src/database/data-source.ts`, compiled to `backend/dist/database/data-source.js`; migration commands follow in the next step.
 
 ## Architecture
 
@@ -92,7 +92,11 @@ The API will include input validation, consistent error responses and Swagger do
 
 ## Storage and import
 
-PostgreSQL 18.6 is selected, using the pinned `postgres:18.6-alpine3.24` image. The following storage and import policy is agreed; the product schema and import remain to be implemented.
+PostgreSQL 18.6 is selected, using the pinned `postgres:18.6-alpine3.24` image. The product entity is defined; applying its schema through a migration and implementing the import remain pending.
+
+`ProductEntity` uses the source ID as a non-generated integer primary key. All fields are required. Prices use `NUMERIC(12,2)` and remain strings inside the entity to preserve exact decimals; API mapping to `Product` will happen separately. Ratings use `rating_rate` and `rating_count` columns. Constraints reject nonpositive IDs, negative or out-of-range prices, blank titles, categories or image references, ratings outside 0–5 and negative rating counts. Text fields use `TEXT` without arbitrary length limits.
+
+IDs and rating counts are limited to PostgreSQL's signed 32-bit integer range. Image URL validation and rejection of prices with more than two decimal places belong to the upcoming import validation: PostgreSQL rounds excess decimal places when assigning a `NUMERIC(12,2)` value.
 
 - Use Fake Store IDs as product primary keys. Store prices as exact `NUMERIC(12,2)` values, rejecting negative, out-of-range or higher-precision prices rather than silently rounding them. The API keeps `price: number`; cart calculations will use integer cents.
 - Insert new products, update changed fields and leave identical products untouched. Preserve local products missing from a response.

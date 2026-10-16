@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadEnvFile } from 'node:process';
 import type { DataSourceOptions } from 'typeorm';
+import { ProductEntity } from '../products/product.entity';
 
 function required(environment: NodeJS.ProcessEnv, name: string): string {
   const value = environment[name];
@@ -28,6 +29,7 @@ export function getDatabaseOptions(environment: NodeJS.ProcessEnv): DataSourceOp
     username: required(environment, 'DB_USER'),
     password: required(environment, 'DB_PASSWORD'),
     connectTimeoutMS: 5000,
+    entities: [ProductEntity],
     synchronize: false,
     migrationsRun: false,
   };
