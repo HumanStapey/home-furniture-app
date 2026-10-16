@@ -1,11 +1,11 @@
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const { test } = require('node:test');
-const { DataSource, Table } = require('typeorm');
+const { DataSource, MigrationExecutor } = require('typeorm');
 const { loadDatabaseOptions } = require('../../dist/database/database.config');
 const { ProductEntity } = require('../../dist/products/product.entity');
 
-test('stores exact prices and enforces product constraints without keeping test data', async () => {
+test('migrates products, enforces storage constraints and supports reverting and reapplying', async () => {
   const schema = `test_${randomUUID().replaceAll('-', '')}`;
   const source = new DataSource({ ...loadDatabaseOptions(), schema });
   await source.initialize();
@@ -13,7 +13,11 @@ test('stores exact prices and enforces product constraints without keeping test 
   try {
     await runner.startTransaction();
     await runner.createSchema(schema);
-    await runner.createTable(Table.create(source.getMetadata(ProductEntity), source.driver));
+    await runner.query(`SET LOCAL search_path TO "${schema}"`);
+    const migrations = new MigrationExecutor(source, runner);
+    assert.equal((await migrations.getPendingMigrations()).length, 1);
+    assert.equal((await migrations.executePendingMigrations()).length, 1);
+    assert.equal((await migrations.executePendingMigrations()).length, 0);
     const repository = runner.manager.getRepository(ProductEntity);
     const product = {
       id: 1, title: 'Chair', description: 'A comfortable chair', category: 'furniture',
@@ -45,6 +49,11 @@ test('stores exact prices and enforces product constraints without keeping test 
       await assert.rejects(repository.insert({ ...product, id: 2, ...override }), { code });
       await runner.query('ROLLBACK TO SAVEPOINT invalid_product');
     }
+    await migrations.undoLastMigration();
+    assert.equal(await runner.hasTable(`${schema}.products`), false);
+    assert.equal((await migrations.getPendingMigrations()).length, 1);
+    assert.equal((await migrations.executePendingMigrations()).length, 1);
+    assert.equal(await repository.count(), 0);
   } finally {
     if (runner.isTransactionActive) await runner.rollbackTransaction();
     await runner.release();

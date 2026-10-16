@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { loadEnvFile } from 'node:process';
 import type { DataSourceOptions } from 'typeorm';
 import { ProductEntity } from '../products/product.entity';
+import { CreateProducts1792110633249 } from './migrations/1792110633249-CreateProducts';
 
 function required(environment: NodeJS.ProcessEnv, name: string): string {
   const value = environment[name];
@@ -30,6 +31,8 @@ export function getDatabaseOptions(environment: NodeJS.ProcessEnv): DataSourceOp
     password: required(environment, 'DB_PASSWORD'),
     connectTimeoutMS: 5000,
     entities: [ProductEntity],
+    migrations: [CreateProducts1792110633249],
+    migrationsTransactionMode: 'all',
     synchronize: false,
     migrationsRun: false,
   };

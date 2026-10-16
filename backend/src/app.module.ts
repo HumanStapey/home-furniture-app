@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { loadDatabaseOptions } from './database/database.config';
+import { ProductsModule } from './products/products.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { loadDatabaseOptions } from './database/database.config';
         retryDelay: 1000,
       }),
     }),
+    ProductsModule,
   ],
   controllers: [AppController],
 })

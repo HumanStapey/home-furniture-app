@@ -4,7 +4,7 @@ A product explorer for the IKEA Fullstack Developer Technical Challenge, with se
 
 A shopping cart is planned as an extra, with quantity controls, item removal, totals and persistence between visits.
 
-The workspace structure, framework startup code and NestJS connection to PostgreSQL are in place. Product features will follow in small, verifiable contributions.
+The workspace structure, framework startup code, PostgreSQL persistence and catalogue import are in place. Catalogue endpoints and frontend features will follow in small, verifiable contributions.
 
 ## Prerequisites
 
@@ -28,6 +28,12 @@ docker-compose up
 
 Compose currently starts only PostgreSQL. To start it in the background and wait until healthy, use `docker-compose up -d --wait db`.
 
+In another terminal, apply pending migrations before starting the applications:
+
+```sh
+npm run migration:run
+```
+
 Start each application in a separate terminal:
 
 ```sh
@@ -37,7 +43,9 @@ npm run dev:backend
 
 The frontend runs at [localhost:3000](http://localhost:3000). The backend responds at [localhost:3001/api](http://localhost:3001/api). Only the startup screen and API root are available at this stage.
 
-Check all three workspaces with `npm run typecheck` and run backend configuration tests with `npm test`. With PostgreSQL running, use `npm run test:integration --workspace @home-furniture/backend` to verify product storage constraints in a temporary schema, rolled back after the test. Build both applications with `npm run build`. The frontend exports static files to `frontend/out`; the backend compiles to `backend/dist`.
+The backend imports products in the background at startup. To refresh the catalogue manually, run `npm run seed` from the root after applying migrations. This command makes one attempt, closes the database connection and exits with a nonzero status on failure. It uses the same validation and storage logic as the startup import.
+
+Check all three workspaces with `npm run typecheck` and run configuration, import validation and retry tests with `npm test`. With PostgreSQL running, use `npm run test:integration --workspace @home-furniture/backend` to verify migrations, product constraints, import behaviour and startup. Storage tests use temporary schemas that are removed afterwards. Build both applications with `npm run build`. The frontend exports static files to `frontend/out`; the backend compiles to `backend/dist`.
 
 PostgreSQL is available at `localhost:15432`, mapped to port `5432` inside the container. Set `DB_PORT` in `.env` to change the local port. Data lives in a named Docker volume and survives container recreation and `docker-compose down`.
 
@@ -45,7 +53,13 @@ PostgreSQL creates the database and credentials when the volume is first initial
 
 NestJS and the TypeORM CLI share connection settings from the root `.env`; existing environment variables take precedence. `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` and `DB_PASSWORD` are required. Invalid settings stop startup with a configuration error. Database connections use a five-second timeout per attempt, with up to three attempts at startup.
 
-Automatic schema synchronization and migration execution are disabled. No application tables are created yet. The CLI data source is `backend/src/database/data-source.ts`, compiled to `backend/dist/database/data-source.js`; migration commands follow in the next step.
+Automatic schema synchronization and migration execution are disabled. The CLI data source is `backend/src/database/data-source.ts`, compiled to `backend/dist/database/data-source.js`. Migration commands compile the backend first and use the same connection settings as NestJS.
+
+- `npm run migration:show`: list applied and pending migrations.
+- `npm run migration:run`: apply pending migrations transactionally; already applied migrations are skipped.
+- `npm run migration:revert`: undo the last applied migration. Reverting the initial migration drops `products` and deletes its data.
+
+The initial migration creates `products` in the default `public` schema; TypeORM records executions in `migrations`. It creates no product data. Future schema changes should use new migrations, keeping already applied migrations unchanged.
 
 ## Architecture
 
@@ -80,7 +94,7 @@ flowchart LR
     Import --> DB
 ```
 
-Fake Store API supplies the initial catalogue. The backend will validate and store imported products, then serve them from the local database through a Controller → Service → Repository structure. The frontend will request catalogue data exclusively from this backend, which will operate independently of Fake Store API after import.
+Fake Store API supplies the catalogue. The backend validates and stores imported products through a Service → Repository structure. Catalogue controllers will serve the local database, and the frontend will request product data exclusively from this backend.
 
 Planned endpoints:
 
@@ -92,18 +106,18 @@ The API will include input validation, consistent error responses and Swagger do
 
 ## Storage and import
 
-PostgreSQL 18.6 is selected, using the pinned `postgres:18.6-alpine3.24` image. The product entity is defined; applying its schema through a migration and implementing the import remain pending.
+PostgreSQL 18.6 is selected, using the pinned `postgres:18.6-alpine3.24` image. The product entity, initial migration and seed are implemented.
 
 `ProductEntity` uses the source ID as a non-generated integer primary key. All fields are required. Prices use `NUMERIC(12,2)` and remain strings inside the entity to preserve exact decimals; API mapping to `Product` will happen separately. Ratings use `rating_rate` and `rating_count` columns. Constraints reject nonpositive IDs, negative or out-of-range prices, blank titles, categories or image references, ratings outside 0–5 and negative rating counts. Text fields use `TEXT` without arbitrary length limits.
 
-IDs and rating counts are limited to PostgreSQL's signed 32-bit integer range. Image URL validation and rejection of prices with more than two decimal places belong to the upcoming import validation: PostgreSQL rounds excess decimal places when assigning a `NUMERIC(12,2)` value.
+IDs and rating counts are limited to PostgreSQL's signed 32-bit integer range. Import validation checks HTTP(S) image URLs and rejects prices with more than two decimal places before writing: PostgreSQL itself rounds excess decimal places when assigning a `NUMERIC(12,2)` value. Validation uses `class-validator` and `class-transformer` without implicit type conversion; additional source fields are ignored.
 
 - Use Fake Store IDs as product primary keys. Store prices as exact `NUMERIC(12,2)` values, rejecting negative, out-of-range or higher-precision prices rather than silently rounding them. The API keeps `price: number`; cart calculations will use integer cents.
-- Insert new products, update changed fields and leave identical products untouched. Preserve local products missing from a response.
+- Insert new products, update changed fields and leave identical products untouched through a transactional upsert. Preserve local products missing from a response.
 - Validate the complete response, including ratings and duplicate IDs, before writing. Reject empty responses. Apply each batch in a transaction so a failed write leaves the existing catalogue intact.
-- Run an import in the background at backend startup, including when local products already exist. Retry failed attempts every 60 seconds until one succeeds, then stop. A dedicated command will reuse the same import logic for manual updates.
+- Run an import in the background at backend startup, including when local products already exist. HTTP requests have a ten-second deadline. Schedule the next attempt 60 seconds after a failure, without overlapping attempts, and stop after the first success. Shutdown cancels HTTP work and scheduled retries and waits for an active import before closing the database connection.
 
-Migrations must complete before the API starts. An external import failure will not prevent the API or frontend from starting. If local products exist, the application will continue serving them and log the failure. Without a local catalogue, the API will return `503` and the frontend will show a temporary-unavailability message with a retry button. That button queries our API again; it does not trigger an external import. Searches with no matches will return `200` with an empty list.
+Migrations must complete before the API starts. An external import failure does not prevent startup and leaves stored products intact. Failures are logged without dumping upstream responses or database write details. Catalogue endpoints and their UI are still pending: they will serve existing products, return `503` when no catalogue is available and show a temporary-unavailability message with a retry button. That button will query our API again; it will not trigger an external import. Searches with no matches will return `200` with an empty list.
 
 ## Assumptions and limitations
 
@@ -112,6 +126,7 @@ Migrations must complete before the API starts. An external import failure will 
 - Products genuinely removed upstream will remain locally. Incorrect upstream values that pass validation may replace previously correct values.
 - Updates happen at startup or through a manual import, without continuous synchronization. The first successful import requires Fake Store to be available; subsequent outages can leave the local catalogue outdated.
 - Import coordination assumes a single backend instance. Multiple instances would require coordination to prevent overlapping imports.
+- The small source catalogue is parsed and imported in memory. Larger sources would need response-size limits and a batching strategy. Price validation operates on JSON numbers after parsing; it cannot recover precision already lost in the source's numeric representation.
 
 ## Delivery
 
