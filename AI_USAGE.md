@@ -16,7 +16,7 @@ The working approach is to compare requirements with documented capabilities, id
 - **Shared contracts:** the developer chose to retain `packages/contracts` after considering local type definitions, to reduce duplication and keep catalogue API types consistent. This is a project design choice, not a challenge requirement. The package will contain only framework-independent TypeScript types used by both applications: products, categories, catalogue query parameters, paginated responses and API errors. Cart types will remain in the frontend; database entities, Fake Store import types and runtime validation DTOs will remain in the backend. Runtime validation is still required at data boundaries.
 - **Shopping cart:** an extra beyond the challenge's core scope. It will share the Redux Toolkit store used by RTK Query, with quantity controls, item removal, totals and `localStorage` persistence. Verification will cover totals, quantity validation and recovery from invalid stored data.
 
-PostgreSQL and a dedicated seed command remain proposals. The database and import strategy have not been selected.
+PostgreSQL is selected. The agreed import policy inserts new products, updates changed values and retains products absent from upstream responses. Imports will validate the full batch, write transactionally and retry failed startup attempts while the API serves any existing local catalogue. This behaviour remains to be implemented.
 
 ## Verification and limits
 
@@ -32,6 +32,14 @@ The shared package now exports `Product`, `Category`, `ProductsQuery`, `Products
 
 `npm run typecheck` passed across all three workspaces. Temporary consumer fixtures verified imports from both applications and rejection of invalid identifier, pagination, sorting, quantity and null assignments. These checks exercise TypeScript contracts, not runtime API or cart behaviour.
 
-Feature tests, database integration, seed, RTK Query, cart behaviour and Docker remain pending.
+Database setup added the official `postgres:18.6-alpine3.24` image, a named volume mounted at the PostgreSQL 18 data location, a TCP readiness check and local-only port publishing. `.env.example` documents development settings, and a local `.env` was created outside version control. Port `15432` was selected after Windows rejected publishing `5432`.
+
+`docker-compose config --quiet` passed. An authenticated SQL write and read survived container recreation, the published local port accepted connections, and the disposable verification table was removed. The database container finished healthy. The volume configuration was checked against the [official PostgreSQL image documentation](https://hub.docker.com/_/postgres).
+
+TypeORM integration added a shared PostgreSQL configuration for NestJS and the migration CLI. The selected NestJS adapter supports TypeORM 0.3. Node.js 22 loads the root `.env` through its native API, avoiding an additional configuration dependency. Required settings and port ranges are validated without including credentials in error messages. Automatic schema synchronization and migration execution are disabled.
+
+Nine configuration tests passed using Node.js's built-in test runner, and strict type checks passed across all workspaces. Live checks confirmed authenticated database access, the API root response, unchanged public tables and CLI configuration loading from the backend directory. Startup checks also verified rejection of missing configuration and an unavailable database. The connection-error check was adjusted to inspect Node.js's aggregate error codes, whose top-level message can be empty.
+
+Product feature tests, entities, migrations, seed, RTK Query, cart behaviour and Docker packaging for the applications remain pending. The current connection settings target local development; production TLS configuration remains outside this step.
 
 This record will be updated as code is developed, including accepted or rejected suggestions and the checks used to validate them.

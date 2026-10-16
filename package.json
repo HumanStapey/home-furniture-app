@@ -6,6 +6,7 @@
     "dev:frontend": "npm run dev --workspace @home-furniture/frontend",
     "dev:backend": "npm run dev --workspace @home-furniture/backend",
     "typecheck": "npm run typecheck --workspaces",
+    "test": "npm run test --workspace @home-furniture/backend",
     "build": "npm run build --workspace @home-furniture/backend && npm run build --workspace @home-furniture/frontend"
   },
   "workspaces": [

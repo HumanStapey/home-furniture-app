@@ -4,7 +4,7 @@ A product explorer for the IKEA Fullstack Developer Technical Challenge, with se
 
 A shopping cart is planned as an extra, with quantity controls, item removal, totals and persistence between visits.
 
-The workspace structure and framework startup code are in place. Product features will follow in small, verifiable contributions.
+The workspace structure, framework startup code and NestJS connection to PostgreSQL are in place. Product features will follow in small, verifiable contributions.
 
 ## Prerequisites
 
@@ -20,6 +20,14 @@ Clone the repository, open its root directory and install the local workspaces:
 npm ci
 ```
 
+Copy `.env.example` to `.env` on first setup and review the values. The example credentials are for local development only. Start PostgreSQL before the backend:
+
+```sh
+docker-compose up
+```
+
+Compose currently starts only PostgreSQL. To start it in the background and wait until healthy, use `docker-compose up -d --wait db`.
+
 Start each application in a separate terminal:
 
 ```sh
@@ -29,15 +37,15 @@ npm run dev:backend
 
 The frontend runs at [localhost:3000](http://localhost:3000). The backend responds at [localhost:3001/api](http://localhost:3001/api). Only the startup screen and API root are available at this stage.
 
-Check all three workspaces with `npm run typecheck`. Build both applications with `npm run build`. The frontend exports static files to `frontend/out`; the backend compiles to `backend/dist`.
+Check all three workspaces with `npm run typecheck` and run backend configuration tests with `npm test`. Build both applications with `npm run build`. The frontend exports static files to `frontend/out`; the backend compiles to `backend/dist`.
 
-The command below is the target Docker setup, not a working command at this stage:
+PostgreSQL is available at `localhost:15432`, mapped to port `5432` inside the container. Set `DB_PORT` in `.env` to change the local port. Data lives in a named Docker volume and survives container recreation and `docker-compose down`.
 
-```sh
-docker-compose up
-```
+PostgreSQL creates the database and credentials when the volume is first initialized. Changing `.env` later does not update existing database users or passwords.
 
-Compose will start the frontend, backend and database. A safe `.env.example` and database initialization instructions will accompany the implementation.
+NestJS and the TypeORM CLI share connection settings from the root `.env`; existing environment variables take precedence. `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` and `DB_PASSWORD` are required. Invalid settings stop startup with a configuration error. Database connections use a five-second timeout per attempt, with up to three attempts at startup.
+
+Automatic schema synchronization and migration execution are disabled. No application tables are created yet. The CLI data source is `backend/src/database/data-source.ts`, compiled to `backend/dist/database/data-source.js`; product entities and migration commands follow in the next steps.
 
 ## Architecture
 
@@ -68,7 +76,7 @@ flowchart LR
     Browser[Browser] --> Nginx[Nginx]
     Nginx --> API[NestJS API]
     API --> DB[(Database)]
-    Fake[Fake Store API] --> Import[Initial import]
+    Fake[Fake Store API] --> Import[Catalogue import]
     Import --> DB
 ```
 
@@ -82,9 +90,26 @@ Planned endpoints:
 
 The API will include input validation, consistent error responses and Swagger documentation.
 
-## Open decisions and delivery
+## Storage and import
 
-The database choice and seed strategy remain open. PostgreSQL is proposed. Import requirements include reproducibility, duplicate prevention and preservation of existing data on failure.
+PostgreSQL 18.6 is selected, using the pinned `postgres:18.6-alpine3.24` image. The following storage and import policy is agreed; the product schema and import remain to be implemented.
+
+- Use Fake Store IDs as product primary keys. Store prices as exact `NUMERIC(12,2)` values, rejecting negative, out-of-range or higher-precision prices rather than silently rounding them. The API keeps `price: number`; cart calculations will use integer cents.
+- Insert new products, update changed fields and leave identical products untouched. Preserve local products missing from a response.
+- Validate the complete response, including ratings and duplicate IDs, before writing. Reject empty responses. Apply each batch in a transaction so a failed write leaves the existing catalogue intact.
+- Run an import in the background at backend startup, including when local products already exist. Retry failed attempts every 60 seconds until one succeeds, then stop. A dedicated command will reuse the same import logic for manual updates.
+
+Migrations must complete before the API starts. An external import failure will not prevent the API or frontend from starting. If local products exist, the application will continue serving them and log the failure. Without a local catalogue, the API will return `503` and the frontend will show a temporary-unavailability message with a retry button. That button queries our API again; it does not trigger an external import. Searches with no matches will return `200` with an empty list.
+
+## Assumptions and limitations
+
+- Fake Store is the only product source, and its IDs are assumed to remain stable.
+- Prices have at most two decimal places. Exact database storage does not make JavaScript floating-point arithmetic exact.
+- Products genuinely removed upstream will remain locally. Incorrect upstream values that pass validation may replace previously correct values.
+- Updates happen at startup or through a manual import, without continuous synchronization. The first successful import requires Fake Store to be available; subsequent outages can leave the local catalogue outdated.
+- Import coordination assumes a single backend instance. Multiple instances would require coordination to prevent overlapping imports.
+
+## Delivery
 
 Development will progress through setup, persistence, import, API, catalogue, details, cart and Docker integration. Each contribution will include relevant verification and documentation. Delivery will include responsive and accessible interactions, automated coverage of a frontend flow and a backend rule, and a clean-clone setup check.
 
