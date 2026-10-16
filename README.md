@@ -24,6 +24,8 @@ The application runs at [localhost:8080](http://localhost:8080). The same origin
 
 Compose waits for a healthy database. The backend image applies pending migrations before starting NestJS and exits if migrations fail. Nginx starts after the API becomes healthy. The seed runs in the background as before: a first import can briefly return catalogue `503` responses while the API itself is healthy.
 
+Nginx uses one-second DNS validity and resolution timeouts so it recovers promptly if the backend starts later or is recreated. The frontend health check calls `/api` through the proxy, so a reachable static page alone does not mark the service healthy.
+
 `docker-compose up` also builds missing images on first startup. Use `--build` after source changes. `docker compose` is equivalent to `docker-compose`. To start in the background and wait for health checks:
 
 ```sh
@@ -56,6 +58,8 @@ Check all three workspaces with `npm run typecheck`. `npm test` runs backend con
 For browser tests, install Chromium once with `npx playwright install chromium` from `frontend/`, then run `npm run test:e2e --workspace @home-furniture/frontend` from the root. Playwright starts the frontend if needed and checks desktop and mobile layouts against controlled API responses; the backend is not required for these tests.
 
 With the Docker stack running, `npm run test:docker` verifies direct client routes, JavaScript assets, the API proxy and preserved validation errors. Set `DOCKER_BASE_URL` to test a different origin; it defaults to `http://localhost:8080`.
+
+After building the Compose images, `npm run test:docker:restart` checks recovery when Nginx starts before the backend is registered in DNS. It uses a temporary network and containers, removes them afterwards and leaves the running application and database untouched.
 
 PostgreSQL is available at `localhost:15432`, mapped to port `5432` inside the container. Set `DB_PORT` in `.env` to change the local port. Data lives in a named Docker volume and survives container recreation and `docker-compose down`.
 
@@ -98,6 +102,8 @@ Only cart items are persisted under `home-furniture:cart` in `localStorage`; RTK
 The catalogue and product detail use MUI components with a consistent theme, as required by the challenge. `frontend/src/theme.ts` defines the shared palette, typography, shape, button defaults and keyboard focus indicators. `ThemeProvider` and `CssBaseline` apply it throughout the SPA. Layout CSS reads its colour variables from the same theme; `StyledEngineProvider` keeps the style order explicit.
 
 Forms use MUI `TextField`, including native select mode for category and sorting. Buttons, product cards, read-only ratings, skeletons, alerts, typography and navigation links also use MUI. The responsive interface retains labelled controls, visible keyboard focus, reduced-motion support and accessible loading announcements. It includes retry actions, an empty-search state, unavailable-image fallbacks and independent recovery for category failures. Long imported category names wrap within product cards. Submitting a search or changing a category or sort resets pagination. Invalid URL values are normalized before requests are made.
+
+Skip links move focus into the main content on every application view. Catalogue navigation and unknown routes focus their main content when opened, matching details and cart. Each view supplies a descriptive browser title, including product loading and error states. Quantity fields identify invalid input, link to explanatory text and announce the restored value after a rejected edit; feedback spans the available row width on mobile. Shared theme overrides improve input-boundary and placeholder contrast.
 
 Only results for the current query are displayed. A failed refresh can retain cached results with a visible warning, while a new filter loads its own results. Requests are refreshed after reconnecting, and cached queries older than 60 seconds are refreshed when revisited. Query caches are kept for 60 seconds after their last subscriber leaves.
 
@@ -173,6 +179,6 @@ Migrations must complete before the API starts. An external import failure does 
 
 ## Delivery
 
-Setup, persistence, import, API, catalogue, details, cart and Docker integration are implemented with automated verification. The remaining challenge closure is a complete accessibility review and a final installation check from a clean Git clone.
+Setup, persistence, import, API, catalogue, details, cart and Docker integration are implemented with automated verification. A Chromium accessibility review covered keyboard navigation, focus, accessible names and descriptions, landmarks, headings, text and input contrast, reduced motion, 320px reflow and increased text spacing. Direct NVDA/VoiceOver checks and a final installation check from a clean Git clone remain pending.
 
 See [AI_USAGE.md](AI_USAGE.md) for how AI has supported the work so far.

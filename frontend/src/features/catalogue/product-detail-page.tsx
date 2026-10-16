@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { Link as RouterLink, useLocation, useParams } from 'react-router';
-import { Alert, AlertTitle, Box, Button, Link, Rating, Skeleton, TextField, Typography } from '@mui/material';
+import { Alert, AlertTitle, Box, Button, FormHelperText, Link, Rating, Skeleton, TextField, Typography } from '@mui/material';
 import { useGetProductQuery } from './catalogue-api';
 import { money, number } from './product-format';
 import { useAppDispatch, useAppSelector } from '../../hooks';
@@ -22,19 +22,26 @@ export function ProductDetailPage() {
   const [failedImage, setFailedImage] = useState<string>();
   const [addedProduct, setAddedProduct] = useState<number>();
   const [selectedQuantity, setSelectedQuantity] = useState('1');
+  const [quantityMessage, setQuantityMessage] = useState('');
   const dispatch = useAppDispatch();
   const cart = useAppSelector(state => state.cart);
   const quantity = cart.find(item => item.product.id === productId)?.quantity ?? 0;
+  const validQuantity = !!product && canAddToCart(cart, product, Number(selectedQuantity));
+  const quantityHint = `Introduce una cantidad entera entre 1 y ${MAX_CART_QUANTITY - quantity} sin superar el total admitido del carrito.`;
+  const quantityFeedback = quantityMessage || (!validQuantity && quantity < MAX_CART_QUANTITY ? quantityHint : '');
   const main = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setSelectedQuantity('1');
+    setQuantityMessage('');
     main.current?.focus();
     window.scrollTo(0, 0);
   }, [id]);
 
   return (
     <main id="catalogue-main" ref={main} tabIndex={-1} className="shell product-detail">
+      <title>{`${notFound ? 'Producto no encontrado' : failed ? 'Producto no disponible'
+        : product?.title ?? 'Detalle del producto'} | Home Furniture`}</title>
       <Link component={RouterLink} className="product-back" to={`/products${catalogueSearch}`}>Volver al catálogo</Link>
 
       {failed ? <Alert severity={notFound ? 'info' : 'error'} className="error-state" role={notFound ? 'status' : 'alert'}>
@@ -71,16 +78,26 @@ export function ProductDetailPage() {
             <div className="product-purchase">
               <TextField type="number" id="product-quantity" label="Cantidad" value={selectedQuantity}
                 disabled={detail.isFetching || quantity === MAX_CART_QUANTITY}
-                slotProps={{ htmlInput: { min: 1, max: MAX_CART_QUANTITY - quantity, step: 1, inputMode: 'numeric' } }}
-                onChange={event => setSelectedQuantity(event.target.value)}
-                onBlur={() => { if (!canAddToCart(cart, product, Number(selectedQuantity))) setSelectedQuantity('1'); }}
+                error={!validQuantity && quantity < MAX_CART_QUANTITY}
+                slotProps={{ htmlInput: { min: 1, max: MAX_CART_QUANTITY - quantity, step: 1, inputMode: 'numeric' },
+                  input: { 'aria-describedby': quantityFeedback ? 'product-quantity-feedback' : undefined } }}
+                onChange={event => { setSelectedQuantity(event.target.value); setQuantityMessage(''); }}
+                onBlur={() => {
+                  if (!validQuantity) {
+                    setSelectedQuantity('1');
+                    setQuantityMessage(`${quantityHint} Se restableció a 1.`);
+                  }
+                }}
                 onKeyDown={event => { if (event.key === 'Enter') (event.target as HTMLInputElement).blur(); }} />
-              <Button type="button" disabled={detail.isFetching || !canAddToCart(cart, product, Number(selectedQuantity))}
+              <Button type="button" disabled={detail.isFetching || !validQuantity}
                 onClick={() => {
                   dispatch(addToCart({ product, quantity: Number(selectedQuantity) }));
                   setAddedProduct(product.id);
                   setSelectedQuantity('1');
+                  setQuantityMessage('');
                 }}>Añadir al carrito</Button>
+              {quantityFeedback && <FormHelperText id="product-quantity-feedback" role="alert" className="quantity-feedback"
+                error={!validQuantity && quantity < MAX_CART_QUANTITY}>{quantityFeedback}</FormHelperText>}
             </div>
             <Typography role="status" aria-live="polite" sx={{ mt: 1 }}>
               {addedProduct === product.id ? `Añadido al carrito. ${quantity} ${quantity === 1 ? 'unidad' : 'unidades'}.` : ''}

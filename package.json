@@ -8,6 +8,7 @@
     "typecheck": "npm run typecheck --workspaces",
     "test": "npm run test --workspaces --if-present",
     "test:docker": "node --test scripts/verify-docker.cjs",
+    "test:docker:restart": "node --test scripts/verify-docker-restart.cjs",
     "migration:show": "npm run migration:show --workspace @home-furniture/backend",
     "migration:run": "npm run migration:run --workspace @home-furniture/backend",
     "migration:revert": "npm run migration:revert --workspace @home-furniture/backend",

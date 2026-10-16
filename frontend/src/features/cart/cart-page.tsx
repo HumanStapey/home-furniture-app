@@ -1,26 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router';
-import { Box, Button, Link, List, ListItem, Paper, TextField, Typography } from '@mui/material';
+import { Box, Button, FormHelperText, Link, List, ListItem, Paper, TextField, Typography } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '../../hooks';
 import { formatCents, money } from '../catalogue/product-format';
-import { cartTotalCents, MAX_CART_QUANTITY, removeFromCart, setCartQuantity } from './cart';
+import { canAddToCart, cartTotalCents, MAX_CART_QUANTITY, removeFromCart, setCartQuantity } from './cart';
 import type { CartItem } from './types';
 
 function QuantityField({ item }: { item: CartItem }) {
   const dispatch = useAppDispatch();
   const [value, setValue] = useState(String(item.quantity));
+  const [message, setMessage] = useState('');
+  const items = useAppSelector(state => state.cart);
+  const quantity = /^\d+$/.test(value) ? Number(value) : NaN;
+  const valid = canAddToCart(items.filter(line => line.product.id !== item.product.id), item.product, quantity);
+  const hint = `Introduce una cantidad entera entre 1 y ${MAX_CART_QUANTITY} sin superar el total admitido del carrito.`;
+  const feedback = !valid ? hint : message;
+  const feedbackId = `cart-quantity-${item.product.id}-feedback`;
   useEffect(() => setValue(String(item.quantity)), [item.quantity]);
 
-  return <TextField type="number" label="Cantidad" value={value}
-    onChange={event => setValue(event.target.value)}
+  return <><TextField type="number" label="Cantidad" value={value} error={!valid}
+    onChange={event => { setValue(event.target.value); setMessage(''); }}
     onBlur={() => {
-      const quantity = /^\d+$/.test(value) ? Number(value) : NaN;
-      dispatch(setCartQuantity({ id: item.product.id, quantity }));
+      if (valid) dispatch(setCartQuantity({ id: item.product.id, quantity }));
+      else setMessage(`${hint} Se mantuvo la cantidad anterior: ${item.quantity}.`);
       setValue(String(item.quantity));
     }}
     onKeyDown={event => { if (event.key === 'Enter') (event.target as HTMLInputElement).blur(); }}
     slotProps={{ htmlInput: { min: 1, max: MAX_CART_QUANTITY, step: 1, inputMode: 'numeric',
-      'aria-label': `Cantidad de ${item.product.title}` } }} />;
+      'aria-label': `Cantidad de ${item.product.title}`, 'aria-describedby': feedback ? feedbackId : undefined } }} />
+    {feedback && <FormHelperText id={feedbackId} role="alert" error={!valid} className="quantity-feedback">{feedback}</FormHelperText>}
+  </>;
 }
 
 export function CartPage() {
@@ -33,6 +42,7 @@ export function CartPage() {
   }, []);
 
   return <main id="catalogue-main" ref={main} tabIndex={-1} className="shell cart-page">
+    <title>Tu carrito | Home Furniture</title>
     <Typography component="h1" variant="h1">Tu carrito</Typography>
     <Typography color="text.secondary" sx={{ mt: 2, mb: 4 }}>Cantidades de 1 a {MAX_CART_QUANTITY} por producto. Precios en USD.</Typography>
     {items.length === 0 ? <Box className="empty-state">

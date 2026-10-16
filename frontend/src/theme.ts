@@ -23,8 +23,14 @@ export const theme = createTheme({
       styleOverrides: { root: { minHeight: 48, padding: '12px 24px', borderRadius: 999 } },
     },
     MuiTextField: { defaultProps: { fullWidth: true, size: 'small' } },
-    MuiInputBase: { styleOverrides: { root: { minHeight: 52 } } },
-    MuiOutlinedInput: { styleOverrides: { root: { borderRadius: 8, backgroundColor: '#ffffff' } } },
+    MuiInputBase: { styleOverrides: {
+      root: { minHeight: 52 },
+      input: ({ theme }) => ({ '&::placeholder': { color: theme.palette.text.secondary, opacity: 1 } }),
+    } },
+    MuiOutlinedInput: { styleOverrides: {
+      root: { borderRadius: 8, backgroundColor: '#ffffff' },
+      notchedOutline: ({ theme }) => ({ borderColor: theme.palette.text.secondary }),
+    } },
     MuiCard: {
       defaultProps: { elevation: 0 },
       styleOverrides: { root: ({ theme }) => ({ backgroundColor: theme.palette.background.default, overflow: 'visible' }) },

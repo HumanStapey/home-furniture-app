@@ -15,7 +15,12 @@ export function CataloguePage() {
   const categories = useGetCategoriesQuery();
   const searchInput = useRef<HTMLInputElement>(null);
   const resultsHeading = useRef<HTMLHeadingElement>(null);
+  const main = useRef<HTMLElement>(null);
   const data = products.currentData;
+
+  useEffect(() => {
+    main.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (params.toString() !== canonical) setParams(canonical, { replace: true });
@@ -42,7 +47,8 @@ export function CataloguePage() {
 
   const unavailable = products.error && 'status' in products.error && products.error.status === 503;
   return (
-    <main id="catalogue-main" className="shell catalogue">
+    <main id="catalogue-main" ref={main} tabIndex={-1} className="shell catalogue">
+      <title>Catálogo | Home Furniture</title>
       <section className="catalogue-intro" aria-labelledby="catalogue-title">
         <div className="catalogue-intro-copy">
           <Typography component="h1" variant="h1" id="catalogue-title">Haz espacio a lo que te gusta.</Typography>

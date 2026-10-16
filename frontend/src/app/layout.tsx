@@ -6,7 +6,6 @@ import './globals.css';
 const manrope = localFont({ src: './fonts/manrope-variable.ttf', variable: '--font-manrope', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'Home Furniture App',
   description: 'Explora el catálogo de Home Furniture. Busca productos y encuentra tu próxima elección.',
 };
 

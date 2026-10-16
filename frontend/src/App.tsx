@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Provider } from 'react-redux';
 import { setupListeners } from '@reduxjs/toolkit/query';
 import { BrowserRouter, Link as RouterLink, NavLink, Navigate, Route, Routes } from 'react-router';
@@ -18,6 +18,18 @@ function CartLink() {
     </svg>
     Carrito ({quantity})
   </Link>;
+}
+
+function NotFoundPage() {
+  const main = useRef<HTMLElement>(null);
+  useEffect(() => {
+    main.current?.focus();
+  }, []);
+  return <main id="catalogue-main" ref={main} tabIndex={-1} className="shell empty-state">
+    <title>Página no encontrada | Home Furniture</title>
+    <Typography component="h1" variant="h3" sx={{ mb: 3 }}>Esta página no está disponible</Typography>
+    <Button component={RouterLink} to="/products">Volver al catálogo</Button>
+  </main>;
 }
 
 export default function App() {
@@ -42,12 +54,7 @@ export default function App() {
               <Route path="/products" element={<CataloguePage />} />
               <Route path="/product/:id" element={<ProductDetailPage />} />
               <Route path="/cart" element={<CartPage />} />
-              <Route path="*" element={
-                <main id="catalogue-main" className="shell empty-state">
-                  <Typography component="h1" variant="h3" sx={{ mb: 3 }}>Esta página no está disponible</Typography>
-                  <Button component={RouterLink} to="/products">Volver al catálogo</Button>
-                </main>
-              } />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
             <Box component="footer" className="site-footer shell"><span>Home Furniture</span><span>Precios expresados en USD.</span></Box>
           </BrowserRouter>
