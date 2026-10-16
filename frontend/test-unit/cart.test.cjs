@@ -13,22 +13,31 @@ const product = {
 afterEach(() => { delete globalThis.window; });
 
 test('adding an existing product increments one line and refreshes its snapshot', () => {
-  const first = cartReducer(undefined, addToCart(product));
-  const next = cartReducer(first, addToCart({ ...product, title: 'Updated lamp', price: 0.2 }));
-  assert.equal(first[0].quantity, 1);
+  const first = cartReducer(undefined, addToCart({ product, quantity: 3 }));
+  const next = cartReducer(first, addToCart({ product: { ...product, title: 'Updated lamp', price: 0.2 }, quantity: 2 }));
+  assert.deepEqual(first, [{ product, quantity: 3 }]);
   assert.equal(next.length, 1);
-  assert.equal(next[0].quantity, 2);
+  assert.equal(next[0].quantity, 5);
   assert.equal(next[0].product.title, 'Updated lamp');
-  assert.equal(cartTotalCents(next), 40);
+  assert.equal(cartTotalCents(next), 100);
 });
 
-test('quantity changes accept integers from 1 to 99 and leave invalid updates unchanged', () => {
+test('quantity changes accept integers from 1 to 100 and leave invalid updates unchanged', () => {
   const initial = [{ product, quantity: 2 }];
-  for (const quantity of [0, -1, 1.5, 100, NaN, Infinity, '3']) {
+  for (const quantity of [0, -1, 1.5, 101, NaN, Infinity, '3']) {
     assert.deepEqual(cartReducer(initial, setCartQuantity({ id: 1, quantity })), initial);
   }
-  assert.equal(cartReducer(initial, setCartQuantity({ id: 1, quantity: 99 }))[0].quantity, 99);
-  assert.deepEqual(cartReducer([{ product, quantity: 99 }], addToCart(product)), [{ product, quantity: 99 }]);
+  assert.equal(cartReducer(initial, setCartQuantity({ id: 1, quantity: 100 }))[0].quantity, 100);
+  assert.deepEqual(cartReducer([{ product, quantity: 100 }], addToCart({ product, quantity: 1 })), [{ product, quantity: 100 }]);
+});
+
+test('batch additions validate their quantity and cannot exceed 100 units of a product', () => {
+  assert.deepEqual(cartReducer(undefined, addToCart({ product, quantity: 100 })), [{ product, quantity: 100 }]);
+  const initial = [{ product, quantity: 99 }];
+  for (const quantity of [0, -1, 1.5, 2, 101, NaN, Infinity, '1']) {
+    assert.deepEqual(cartReducer(initial, addToCart({ product, quantity })), initial);
+  }
+  assert.equal(cartReducer(initial, addToCart({ product, quantity: 1 }))[0].quantity, 100);
 });
 
 test('removal targets one product and unknown IDs leave the cart unchanged', () => {
@@ -58,9 +67,9 @@ test('updates cannot overflow the safe integer range for a cent total', () => {
     product: { ...product, id: index + 1, price: 9_999_999_999.99 }, quantity: index === 90 ? 97 : 99,
   }));
   assert.equal(Number.isSafeInteger(cartTotalCents(initial)), true);
-  assert.deepEqual(cartReducer(initial, addToCart(initial[90].product)), initial);
+  assert.deepEqual(cartReducer(initial, addToCart({ product: initial[90].product, quantity: 1 })), initial);
   assert.deepEqual(cartReducer(initial, setCartQuantity({ id: 91, quantity: 98 })), initial);
-  assert.deepEqual(cartReducer(initial, addToCart({ ...initial[90].product, id: 92 })), initial);
+  assert.deepEqual(cartReducer(initial, addToCart({ product: { ...initial[90].product, id: 92 }, quantity: 1 })), initial);
 });
 
 test('persists and restores only the cart under its own storage key', () => {
@@ -69,7 +78,7 @@ test('persists and restores only the cart under its own storage key', () => {
     getItem: key => values.get(key) ?? null,
     setItem: (key, value) => values.set(key, value),
   } };
-  const items = [{ product, quantity: 3 }];
+  const items = [{ product, quantity: 100 }];
   writeCart(items);
   assert.equal(values.size, 1);
   assert.deepEqual(JSON.parse(values.get(CART_STORAGE_KEY)), items);
@@ -80,7 +89,7 @@ test('ignores malformed, duplicate and invalid persisted product or quantity dat
   const item = { product, quantity: 1 };
   const invalid = [
     'not json', 'null', '{}', '[null]', JSON.stringify([item, item]),
-    ...[0, -1, 1.5, 100, '2'].map(quantity => JSON.stringify([{ ...item, quantity }])),
+    ...[0, -1, 1.5, 101, '2'].map(quantity => JSON.stringify([{ ...item, quantity }])),
     ...[
       { id: 0 }, { id: 2147483648 }, { title: '' }, { description: null }, { category: '' },
       { price: -1 }, { price: 0.001 }, { price: '2' }, { price: 10_000_000_000 },
@@ -104,5 +113,5 @@ test('unavailable or full browser storage does not prevent using the in-memory c
   } };
   assert.deepEqual(readCart(), []);
   assert.doesNotThrow(() => writeCart([{ product, quantity: 1 }]));
-  assert.equal(cartReducer(undefined, addToCart(product))[0].quantity, 1);
+  assert.deepEqual(cartReducer(undefined, addToCart({ product, quantity: 1 })), [{ product, quantity: 1 }]);
 });

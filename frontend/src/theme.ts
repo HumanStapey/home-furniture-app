@@ -2,28 +2,29 @@ import { createTheme } from '@mui/material/styles';
 
 export const theme = createTheme({
   palette: {
-    primary: { main: '#173c88' },
-    secondary: { main: '#ffd838', contrastText: '#17212b' },
-    text: { primary: '#17212b', secondary: '#56616f' },
-    background: { default: '#ffffff', paper: '#f2f4f7' },
-    divider: '#d7dce3',
+    primary: { main: '#1647ba', contrastText: '#ffffff' },
+    secondary: { main: '#ffe04a', contrastText: '#17253a' },
+    text: { primary: '#17253a', secondary: '#586578' },
+    background: { default: '#ffffff', paper: '#f3f6fa' },
+    divider: '#dce2eb',
   },
   typography: {
-    fontFamily: "'Segoe UI', Arial, sans-serif",
-    h1: { fontFamily: "'Trebuchet MS', sans-serif", fontWeight: 700 },
-    h2: { fontSize: 21, fontWeight: 650 },
-    h3: { fontSize: 24, fontWeight: 650 },
-    button: { textTransform: 'none', fontWeight: 650 },
+    fontFamily: "var(--font-manrope), 'Segoe UI', sans-serif",
+    h1: { fontWeight: 800 },
+    h2: { fontSize: 24, fontWeight: 750 },
+    h3: { fontSize: 24, fontWeight: 750 },
+    button: { textTransform: 'none', fontWeight: 750 },
   },
-  shape: { borderRadius: 5 },
+  shape: { borderRadius: 12 },
   focusVisible: { outlineWidth: 3, outlineOffset: 4 },
   components: {
     MuiButton: {
       defaultProps: { variant: 'contained', disableElevation: true },
-      styleOverrides: { root: { minHeight: 48, padding: '12px 22px' } },
+      styleOverrides: { root: { minHeight: 48, padding: '12px 24px', borderRadius: 999 } },
     },
     MuiTextField: { defaultProps: { fullWidth: true, size: 'small' } },
-    MuiInputBase: { styleOverrides: { root: { minHeight: 48 } } },
+    MuiInputBase: { styleOverrides: { root: { minHeight: 52 } } },
+    MuiOutlinedInput: { styleOverrides: { root: { borderRadius: 8, backgroundColor: '#ffffff' } } },
     MuiCard: {
       defaultProps: { elevation: 0 },
       styleOverrides: { root: ({ theme }) => ({ backgroundColor: theme.palette.background.default, overflow: 'visible' }) },

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
-import { Alert, AlertTitle, Button, Skeleton, TextField, Typography } from '@mui/material';
+import { Alert, AlertTitle, Button, InputAdornment, Skeleton, TextField, Typography } from '@mui/material';
 import { useGetCategoriesQuery, useGetProductsQuery } from './catalogue-api';
 import { catalogueParams, readCatalogueQuery, sortOptions } from './catalogue-query';
 import type { CatalogueQuery } from './catalogue-query';
@@ -44,16 +44,34 @@ export function CataloguePage() {
   return (
     <main id="catalogue-main" className="shell catalogue">
       <section className="catalogue-intro" aria-labelledby="catalogue-title">
-        <Typography component="h1" variant="h1" id="catalogue-title">Explora el catálogo<span aria-hidden="true">.</span></Typography>
-        <Typography>Encuentra lo que buscas. Hazlo tuyo.</Typography>
+        <div className="catalogue-intro-copy">
+          <Typography component="h1" variant="h1" id="catalogue-title">Haz espacio a lo que te gusta.</Typography>
+          <Typography>Buenas ideas para tu día a día. Explora el catálogo y encuentra tu próxima elección.</Typography>
+          <Button component="a" color="secondary" href="#catalogue-products">Explorar productos
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+              <path d="M4 12h15m-6-6 6 6-6 6" />
+            </svg>
+          </Button>
+        </div>
+        <figure className="catalogue-intro-image">
+          <img src="/images/room-inspiration.webp" width={1200} height={800}
+            alt="Rincón luminoso con un sillón azul, una mesa amarilla y plantas." fetchPriority="high" />
+          <figcaption>Un rincón para inspirarte</figcaption>
+        </figure>
       </section>
 
-      <section className="catalogue-filters" aria-label="Buscar y filtrar productos">
+      <section id="catalogue-products" tabIndex={-1} className="catalogue-filters" aria-label="Buscar y filtrar productos">
         <form className="search-form" role="search" onSubmit={search}>
           <div className="search-control">
             <TextField inputRef={searchInput} id="search" name="search" type="search" defaultValue={query.search ?? ''}
               label="Buscar productos" placeholder="¿Qué estás buscando?"
-              slotProps={{ htmlInput: { maxLength: 200 }, inputLabel: { shrink: true } }} />
+              slotProps={{ htmlInput: { maxLength: 200 }, inputLabel: { shrink: true }, input: {
+                startAdornment: <InputAdornment position="start">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                    <circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4 4" />
+                  </svg>
+                </InputAdornment>,
+              } }} />
             <Button type="submit">Buscar</Button>
           </div>
         </form>
@@ -83,7 +101,7 @@ export function CataloguePage() {
 
       <section className="catalogue-results" aria-labelledby="results-title">
         <div className="results-summary">
-          <Typography component="h2" variant="h2" id="results-title" ref={resultsHeading} tabIndex={-1}>Productos</Typography>
+          <Typography component="h2" variant="h2" id="results-title" ref={resultsHeading} tabIndex={-1}>Explora el catálogo</Typography>
           <Typography role="status" aria-live="polite">
             {products.isFetching ? 'Cargando productos…' : data ? `${data.total} ${data.total === 1 ? 'producto' : 'productos'}` : ''}
           </Typography>

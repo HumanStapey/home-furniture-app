@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { Link as RouterLink, useLocation, useParams } from 'react-router';
-import { Alert, AlertTitle, Box, Button, Link, Rating, Skeleton, Typography } from '@mui/material';
+import { Alert, AlertTitle, Box, Button, Link, Rating, Skeleton, TextField, Typography } from '@mui/material';
 import { useGetProductQuery } from './catalogue-api';
 import { money, number } from './product-format';
 import { useAppDispatch, useAppSelector } from '../../hooks';
@@ -21,12 +21,14 @@ export function ProductDetailPage() {
     ? state.catalogueSearch : '';
   const [failedImage, setFailedImage] = useState<string>();
   const [addedProduct, setAddedProduct] = useState<number>();
+  const [selectedQuantity, setSelectedQuantity] = useState('1');
   const dispatch = useAppDispatch();
   const cart = useAppSelector(state => state.cart);
   const quantity = cart.find(item => item.product.id === productId)?.quantity ?? 0;
   const main = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    setSelectedQuantity('1');
     main.current?.focus();
     window.scrollTo(0, 0);
   }, [id]);
@@ -66,8 +68,20 @@ export function ProductDetailPage() {
                 aria-label={`Valoración: ${number.format(product.rating.rate)} de 5, ${product.rating.count} opiniones`} />
               <span aria-hidden="true">{number.format(product.rating.rate)} de 5 ({product.rating.count} opiniones)</span>
             </Box>
-            <Button type="button" sx={{ mt: 3 }} disabled={detail.isFetching || !canAddToCart(cart, product)}
-              onClick={() => { dispatch(addToCart(product)); setAddedProduct(product.id); }}>Añadir al carrito</Button>
+            <div className="product-purchase">
+              <TextField type="number" id="product-quantity" label="Cantidad" value={selectedQuantity}
+                disabled={detail.isFetching || quantity === MAX_CART_QUANTITY}
+                slotProps={{ htmlInput: { min: 1, max: MAX_CART_QUANTITY - quantity, step: 1, inputMode: 'numeric' } }}
+                onChange={event => setSelectedQuantity(event.target.value)}
+                onBlur={() => { if (!canAddToCart(cart, product, Number(selectedQuantity))) setSelectedQuantity('1'); }}
+                onKeyDown={event => { if (event.key === 'Enter') (event.target as HTMLInputElement).blur(); }} />
+              <Button type="button" disabled={detail.isFetching || !canAddToCart(cart, product, Number(selectedQuantity))}
+                onClick={() => {
+                  dispatch(addToCart({ product, quantity: Number(selectedQuantity) }));
+                  setAddedProduct(product.id);
+                  setSelectedQuantity('1');
+                }}>Añadir al carrito</Button>
+            </div>
             <Typography role="status" aria-live="polite" sx={{ mt: 1 }}>
               {addedProduct === product.id ? `Añadido al carrito. ${quantity} ${quantity === 1 ? 'unidad' : 'unidades'}.` : ''}
             </Typography>

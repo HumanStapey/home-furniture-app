@@ -24,6 +24,21 @@ async function catalogue(page: Page) {
   });
 }
 
+test('offers an original inspiration image and a keyboard shortcut to the catalogue controls', async ({ page }) => {
+  await catalogue(page);
+  await page.goto('/products');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Haz espacio a lo que te gusta.');
+  await expect(page.getByRole('img', { name: 'Rincón luminoso con un sillón azul, una mesa amarilla y plantas.' }))
+    .toHaveJSProperty('naturalWidth', 1200);
+  const explore = page.getByRole('link', { name: 'Explorar productos' });
+  await explore.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#catalogue-products')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByLabel('Buscar productos')).toBeFocused();
+  await expect(page.getByLabel('Buscar productos')).toBeInViewport();
+});
+
 test('filters and paginates through the URL, then restores the previous view', async ({ page }) => {
   await catalogue(page);
   await page.goto('/products');
