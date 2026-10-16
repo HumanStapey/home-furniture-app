@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
+    "test": "node --experimental-strip-types --test test-unit/*.test.cjs",
     "test:e2e": "playwright test",
     "typecheck": "next typegen && tsc --noEmit"
   },

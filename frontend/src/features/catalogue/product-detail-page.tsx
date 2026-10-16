@@ -4,6 +4,8 @@ import { Link as RouterLink, useLocation, useParams } from 'react-router';
 import { Alert, AlertTitle, Box, Button, Link, Rating, Skeleton, Typography } from '@mui/material';
 import { useGetProductQuery } from './catalogue-api';
 import { money, number } from './product-format';
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { addToCart, canAddToCart, MAX_CART_QUANTITY } from '../cart/cart';
 
 export function ProductDetailPage() {
   const { id } = useParams();
@@ -18,6 +20,10 @@ export function ProductDetailPage() {
   const catalogueSearch = typeof state?.catalogueSearch === 'string' && state.catalogueSearch.startsWith('?')
     ? state.catalogueSearch : '';
   const [failedImage, setFailedImage] = useState<string>();
+  const [addedProduct, setAddedProduct] = useState<number>();
+  const dispatch = useAppDispatch();
+  const cart = useAppSelector(state => state.cart);
+  const quantity = cart.find(item => item.product.id === productId)?.quantity ?? 0;
   const main = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -60,6 +66,12 @@ export function ProductDetailPage() {
                 aria-label={`Valoración: ${number.format(product.rating.rate)} de 5, ${product.rating.count} opiniones`} />
               <span aria-hidden="true">{number.format(product.rating.rate)} de 5 ({product.rating.count} opiniones)</span>
             </Box>
+            <Button type="button" sx={{ mt: 3 }} disabled={detail.isFetching || !canAddToCart(cart, product)}
+              onClick={() => { dispatch(addToCart(product)); setAddedProduct(product.id); }}>Añadir al carrito</Button>
+            <Typography role="status" aria-live="polite" sx={{ mt: 1 }}>
+              {addedProduct === product.id ? `Añadido al carrito. ${quantity} ${quantity === 1 ? 'unidad' : 'unidades'}.` : ''}
+            </Typography>
+            {quantity === MAX_CART_QUANTITY && <Typography color="text.secondary">Máximo {MAX_CART_QUANTITY} unidades por producto.</Typography>}
             <Typography component="h2" variant="h2">Descripción</Typography>
             <Typography className="product-description">{product.description}</Typography>
           </section>

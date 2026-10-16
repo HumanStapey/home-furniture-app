@@ -6,6 +6,7 @@
 .brand { display: inline-flex; align-items: center; gap: 13px; color: var(--ink); text-decoration: none; font-weight: 750; font-size: 19px; }
 .brand-mark { display: grid; place-items: center; background: var(--blue); color: var(--on-blue); width: 48px; height: 48px; border-bottom: 5px solid var(--yellow); font: 700 27px 'Trebuchet MS', sans-serif; }
 .site-header nav a { display: inline-block; padding: 14px 0; text-underline-offset: 8px; font-weight: 600; }
+.site-header nav { display: flex; gap: 24px; }
 .catalogue-intro { padding-block: 64px 45px; }
 .catalogue-intro h1 { max-width: 900px; font-size: clamp(38px, 5vw, 66px); line-height: 1.08; letter-spacing: -.045em; }
 .catalogue-intro h1 span { color: var(--blue); }
@@ -48,18 +49,28 @@
 .product-information .product-category { margin-top: 0; font-size: 14px; }
 .product-information h1 { font-size: clamp(28px, 3vw, 42px); line-height: 1.2; letter-spacing: -.03em; }
 .product-information .product-price { margin-top: 28px; font-size: 32px; }
-.product-information .product-rating { margin-top: 16px; font-size: 14px; white-space: normal; }
+.product-information .product-rating { display: flex; margin-top: 16px; font-size: 14px; white-space: normal; }
 .product-information h2 { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 20px; }
 .product-description { margin-top: 14px; max-width: 65ch; line-height: 1.7; white-space: pre-line; }
 .product-loading { margin-bottom: 20px; color: var(--muted); }
 .product-detail .empty-state h1, .product-detail .error-state h1 { font-size: 28px; }
 .site-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-top: 75px; padding-block: 28px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.cart-page { padding-top: 42px; }
+.cart-page h1 { font-size: clamp(32px, 5vw, 48px); line-height: 1.15; }
+.cart-item { display: grid; grid-template-columns: minmax(0, 1fr) 100px 150px auto; gap: 24px; padding-block: 28px; }
+.cart-product { min-width: 0; overflow-wrap: anywhere; }
+.cart-product h2 { font-size: 20px; }
+.cart-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 28px; margin-top: 32px; }
+.cart-summary, .cart-subtotal { overflow-wrap: anywhere; }
 @media (max-width: 1100px) {
   .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .catalogue-filters { grid-template-columns: 1fr 1fr; gap: 20px; }
   .search-form { grid-column: 1 / -1; }
 }
 @media (max-width: 760px) {
+  .cart-item { grid-template-columns: 100px minmax(0, 1fr) auto; gap: 18px; }
+  .cart-product { grid-column: 1 / -1; }
+  .cart-item button { padding-inline: 12px; }
   .product-detail-grid { grid-template-columns: 1fr; gap: 28px; }
   .shell { width: calc(100% - 40px); }
   .header-content { min-height: 82px; }
@@ -73,6 +84,10 @@
   .product-price { font-size: 20px; }
 }
 @media (max-width: 460px) {
+  .header-content { flex-wrap: wrap; padding-block: 12px; row-gap: 4px; }
+  .site-header nav { width: 100%; justify-content: space-between; }
+  .cart-item { grid-template-columns: 100px minmax(0, 1fr); }
+  .cart-item button { justify-self: start; }
   .catalogue-filters { grid-template-columns: 1fr; gap: 18px; }
   .product-grid { grid-template-columns: 1fr; }
   .product-image, .product-skeleton > div { height: 280px; }
