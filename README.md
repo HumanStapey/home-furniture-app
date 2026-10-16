@@ -4,7 +4,7 @@ A product explorer for the IKEA Fullstack Developer Technical Challenge, with se
 
 A shopping cart is planned as an extra, with quantity controls, item removal, totals and persistence between visits.
 
-The workspace structure, PostgreSQL persistence, catalogue import and catalogue API are in place. Frontend features will follow in small, verifiable contributions.
+The workspace structure, PostgreSQL persistence, catalogue import, catalogue API and frontend catalogue are in place. Product details and the cart will follow in small, verifiable contributions.
 
 ## Prerequisites
 
@@ -41,11 +41,13 @@ npm run dev:frontend
 npm run dev:backend
 ```
 
-The frontend runs at [localhost:3000](http://localhost:3000) and currently shows the startup screen. The backend exposes its catalogue at [localhost:3001/api/products](http://localhost:3001/api/products). Explore and test the API in [Swagger](http://localhost:3001/api/docs); the OpenAPI document is available at `/api/docs-json`.
+The catalogue runs at [localhost:3000/products](http://localhost:3000/products); `/` redirects there. In development, Next.js forwards `/api` to the backend at `localhost:3001`. The backend also exposes its catalogue directly at [localhost:3001/api/products](http://localhost:3001/api/products). Explore and test the API in [Swagger](http://localhost:3001/api/docs); the OpenAPI document is available at `/api/docs-json`.
 
 The backend imports products in the background at startup. To refresh the catalogue manually, run `npm run seed` from the root after applying migrations. This command makes one attempt, closes the database connection and exits with a nonzero status on failure. It uses the same validation and storage logic as the startup import.
 
 Check all three workspaces with `npm run typecheck` and run configuration, import validation and retry tests with `npm test`. With PostgreSQL running, use `npm run test:integration --workspace @home-furniture/backend` to verify migrations, product constraints, import behaviour and startup. Storage tests use temporary schemas that are removed afterwards. Build both applications with `npm run build`. The frontend exports static files to `frontend/out`; the backend compiles to `backend/dist`.
+
+For browser tests, install Chromium once with `npx playwright install chromium` from `frontend/`, then run `npm run test:e2e --workspace @home-furniture/frontend` from the root. Playwright starts the frontend if needed and checks desktop and mobile layouts against controlled API responses; the backend is not required for these tests.
 
 PostgreSQL is available at `localhost:15432`, mapped to port `5432` inside the container. Set `DB_PORT` in `.env` to change the local port. Data lives in a named Docker volume and survives container recreation and `docker-compose down`.
 
@@ -79,9 +81,15 @@ The shared contracts package reduces duplicate type definitions and keeps the AP
 
 Next.js with a static export is the best fit for the selected stack. React Router will handle `/products`, `/product/:id` and `/cart`, while Nginx will serve the application.
 
-RTK Query will cache catalogue requests. Search, filters and pagination will live in the URL to preserve the current view when navigating back.
+RTK Query caches catalogue and category requests in the Redux store. Search, category, sorting and pagination live in the URL to preserve the current view when navigating back or reloading. Requests use the same-origin `/api` path with a ten-second timeout. The development proxy runs through Next.js; production proxying will be provided by Nginx.
 
 A Redux slice will manage the cart and persist it in `localStorage`.
+
+The responsive catalogue uses native CSS, labelled HTML controls, keyboard focus indicators, reduced-motion support and accessible loading announcements. It includes skeletons, a retry action, an empty-search state, unavailable-image fallbacks and independent recovery for category failures. Submitting a search or changing a category or sort resets pagination. Invalid URL values are normalized before requests are made.
+
+Only results for the current query are displayed. A failed refresh can retain cached results with a visible warning, while a new filter loads its own results. Requests are refreshed after reconnecting, and cached queries older than 60 seconds are refreshed when revisited. Query caches are kept for 60 seconds after their last subscriber leaves.
+
+The interface is in Spanish. Source product content stays in its original language. Prices are presented in USD without currency conversion as a display assumption; Fake Store does not include a currency field in the product contract. Product details and cart actions remain outside this catalogue contribution.
 
 The frontend image will use a multi-stage build: Node.js compiles the application, and Nginx serves the static files, supports direct navigation to client routes and forwards `/api` requests to NestJS.
 
