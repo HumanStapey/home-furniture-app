@@ -46,6 +46,25 @@ test('filters and paginates through the URL, then restores the previous view', a
   await expect(page.locator('body')).toHaveJSProperty('scrollWidth', await page.locator('body').evaluate(element => element.clientWidth));
 });
 
+test('preserves full imported category names when filtering and reloading', async ({ page }) => {
+  const category = 'a'.repeat(201);
+  await catalogue(page);
+  await page.route('**/api/products/categories', route => route.fulfill({ json: [category] }));
+  await page.route('**/api/products?**', route => {
+    const selected = new URL(route.request().url()).searchParams.get('category');
+    return route.fulfill({ json: response(selected === category ? [{ ...chair, category }] : []) });
+  });
+  await page.goto('/products');
+  await page.getByLabel('Categoría').selectOption(category);
+  await expect(page.getByLabel('Categoría')).toHaveValue(category);
+  await expect(page.getByRole('heading', { name: 'Oak chair' })).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('category')).toBe(category);
+  await page.reload();
+  await expect(page.getByLabel('Categoría')).toHaveValue(category);
+  await expect(page.getByRole('heading', { name: 'Oak chair' })).toBeVisible();
+  await expect(page.locator('body')).toHaveJSProperty('scrollWidth', await page.locator('body').evaluate(element => element.clientWidth));
+});
+
 test('shows an empty search and resets filters', async ({ page }) => {
   await catalogue(page);
   await page.goto('/products');
@@ -56,6 +75,40 @@ test('shows an empty search and resets filters', async ({ page }) => {
   await page.getByRole('button', { name: 'Limpiar filtros' }).click();
   await expect(page.getByRole('heading', { name: 'Oak chair' })).toBeVisible();
   await expect(page.getByLabel('Buscar productos')).toHaveValue('');
+});
+
+test('keeps brand and action styling consistent between catalogue and details', async ({ page }) => {
+  await catalogue(page);
+  await page.route('**/api/products/1', route => route.fulfill({ status: 503, json: {} }));
+  await page.goto('/products');
+  const search = page.getByRole('button', { name: 'Buscar', exact: true });
+  const styles = await search.evaluate(element => {
+    const style = getComputedStyle(element);
+    return { background: style.backgroundColor, font: style.fontFamily, radius: style.borderRadius };
+  });
+  await expect(page.locator('.brand-mark')).toHaveCSS('background-color', styles.background);
+  await expect(page.getByLabel('Buscar productos')).toHaveCSS('font-family', styles.font);
+  await page.getByRole('link', { name: 'Ver detalle de Oak chair' }).click();
+  const retry = page.getByRole('button', { name: 'Reintentar', exact: true });
+  await expect(retry).toHaveCSS('background-color', styles.background);
+  await expect(retry).toHaveCSS('font-family', styles.font);
+  await expect(retry).toHaveCSS('border-radius', styles.radius);
+});
+
+test('shows a visible focus ring when tabbing to buttons and product links', async ({ page }) => {
+  await catalogue(page);
+  await page.goto('/products');
+  await expect(page.getByRole('heading', { name: 'Oak chair' })).toBeVisible();
+  await page.getByLabel('Buscar productos').focus();
+  await page.keyboard.press('Tab');
+  const search = page.getByRole('button', { name: 'Buscar', exact: true });
+  await expect(search).toBeFocused();
+  await expect(search).toHaveCSS('outline-style', 'solid');
+  await page.getByLabel('Ordenar por').focus();
+  await page.keyboard.press('Tab');
+  const product = page.getByRole('link', { name: 'Ver detalle de Oak chair' });
+  await expect(product).toBeFocused();
+  await expect(product).toHaveCSS('outline-style', 'solid');
 });
 
 test('keeps search focus and restores its value through browser history', async ({ page }) => {

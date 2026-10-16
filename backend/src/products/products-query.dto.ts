@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, NotContains } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { ProductsQuery } from '@home-furniture/contracts';
 
@@ -12,13 +12,14 @@ export class ProductsQueryDto implements ProductsQuery {
   @IsOptional()
   @IsString()
   @MaxLength(200)
+  @NotContains('\0')
   @Transform(({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value)
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Exact category name', maxLength: 200 })
+  @ApiPropertyOptional({ description: 'Exact category name' })
   @IsOptional()
   @IsString()
-  @MaxLength(200)
+  @NotContains('\0')
   category?: string;
 
   @ApiPropertyOptional({ type: 'integer', default: 1, minimum: 1, maximum: 2147483647 })

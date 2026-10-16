@@ -7,6 +7,8 @@ const { TypeOrmModule } = require('@nestjs/typeorm');
 const { DataSource, MigrationExecutor } = require('typeorm');
 const { loadDatabaseOptions } = require('../../dist/database/database.config');
 const { ProductEntity } = require('../../dist/products/product.entity');
+const { parseProducts } = require('../../dist/products/fake-store-product.dto');
+const { ProductsRepository } = require('../../dist/products/products.repository');
 const { ProductsModule } = require('../../dist/products/products.module');
 const { configureApp } = require('../../dist/configure-app');
 
@@ -84,6 +86,7 @@ test('catalogue HTTP contract uses local data, validates inputs and handles unav
       'page=0', 'page=-1', 'page=1.5', 'page=1e2', 'page=0x10', 'page=',
       'page=2147483648', 'limit=101', 'limit=0', 'limit=1&limit=2',
       'sort=description', 'order=DESC', 'unknown=true', `search=${'a'.repeat(201)}`,
+      'search=%00', 'category=%00', 'search=chair%00wood', 'category=living%00room',
     ]) {
       const result = await get(`/products?${query}`);
       assert.equal(result.status, 400, query);
@@ -107,6 +110,15 @@ test('catalogue HTTP contract uses local data, validates inputs and handles unav
     assert.ok(spec.body.components.schemas.ProductsResponseDto.properties.items.items.$ref);
     assert.equal((await realFetch(`${base}/api/docs/`)).status, 200);
     assert.equal(upstreamCalls, 1, 'catalogue reads must not fetch Fake Store');
+    const longCategory = 'a'.repeat(201);
+    await new ProductsRepository(source).importBatch(parseProducts([
+      { ...list.body.items[0], id: 5, category: longCategory },
+    ]));
+    assert.ok((await get('/products/categories')).body.includes(longCategory));
+    const filtered = await get(`/products?category=${encodeURIComponent(longCategory)}`);
+    assert.equal(filtered.status, 200);
+    assert.deepEqual(filtered.body.items.map(product => product.id), [5]);
+    assert.equal(filtered.body.items[0].category, longCategory);
     await app.get(DataSource).destroy();
     assert.deepEqual(await get('/products'), {
       status: 500,

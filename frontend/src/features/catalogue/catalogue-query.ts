@@ -21,7 +21,7 @@ export function readCatalogueQuery(params: URLSearchParams): CatalogueQuery {
   const order = params.get('order') ?? 'asc';
   const validSort = sortOptions.some(option => option.value === `${sort ?? 'id'}:${order}`);
   const search = params.get('search')?.trim().slice(0, 200) || undefined;
-  const category = params.get('category')?.slice(0, 200) || undefined;
+  const category = params.get('category') || undefined;
   return {
     page: integer(params.get('page'), 1, 2147483647),
     limit: integer(params.get('limit'), 12, 100),

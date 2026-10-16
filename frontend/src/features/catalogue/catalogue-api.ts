@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import type { Category, ProductsQuery, ProductsResponse } from '@home-furniture/contracts';
+import type { Category, Product, ProductsQuery, ProductsResponse } from '@home-furniture/contracts';
 
 export const catalogueApi = createApi({
   reducerPath: 'catalogueApi',
@@ -10,10 +10,13 @@ export const catalogueApi = createApi({
     getProducts: builder.query<ProductsResponse, ProductsQuery>({
       query: params => ({ url: 'products', params }),
     }),
+    getProduct: builder.query<Product, number>({
+      query: id => `products/${id}`,
+    }),
     getCategories: builder.query<Category[], void>({
       query: () => 'products/categories',
     }),
   }),
 });
 
-export const { useGetProductsQuery, useGetCategoriesQuery } = catalogueApi;
+export const { useGetProductsQuery, useGetProductQuery, useGetCategoriesQuery } = catalogueApi;

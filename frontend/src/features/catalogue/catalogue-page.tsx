@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
+import { Alert, AlertTitle, Button, Skeleton, TextField, Typography } from '@mui/material';
 import { useGetCategoriesQuery, useGetProductsQuery } from './catalogue-api';
 import { catalogueParams, readCatalogueQuery, sortOptions } from './catalogue-query';
 import type { CatalogueQuery } from './catalogue-query';
@@ -43,85 +44,82 @@ export function CataloguePage() {
   return (
     <main id="catalogue-main" className="shell catalogue">
       <section className="catalogue-intro" aria-labelledby="catalogue-title">
-        <h1 id="catalogue-title">Explora el catálogo<span aria-hidden="true">.</span></h1>
-        <p>Encuentra lo que buscas. Hazlo tuyo.</p>
+        <Typography component="h1" variant="h1" id="catalogue-title">Explora el catálogo<span aria-hidden="true">.</span></Typography>
+        <Typography>Encuentra lo que buscas. Hazlo tuyo.</Typography>
       </section>
 
       <section className="catalogue-filters" aria-label="Buscar y filtrar productos">
         <form className="search-form" role="search" onSubmit={search}>
-          <label htmlFor="search">Buscar productos</label>
           <div className="search-control">
-            <input ref={searchInput} id="search" name="search" type="search" defaultValue={query.search ?? ''}
-              maxLength={200} placeholder="¿Qué estás buscando?" />
-            <button type="submit">Buscar</button>
+            <TextField inputRef={searchInput} id="search" name="search" type="search" defaultValue={query.search ?? ''}
+              label="Buscar productos" placeholder="¿Qué estás buscando?"
+              slotProps={{ htmlInput: { maxLength: 200 }, inputLabel: { shrink: true } }} />
+            <Button type="submit">Buscar</Button>
           </div>
         </form>
-        <div className="filter-field">
-          <label htmlFor="category">Categoría</label>
-          <select id="category" value={query.category ?? ''} disabled={!categories.currentData}
-            onChange={event => change({ category: event.target.value || undefined })}>
-            <option value="">Todas las categorías</option>
-            {query.category && !categories.currentData?.includes(query.category) && <option value={query.category}>{query.category}</option>}
-            {categories.currentData?.map(category => <option key={category} value={category}>{category}</option>)}
-          </select>
-        </div>
-        <div className="filter-field">
-          <label htmlFor="sort">Ordenar por</label>
-          <select id="sort" value={`${query.sort}:${query.order}`} onChange={event => {
+        <TextField className="filter-field" select id="category" label="Categoría" value={query.category ?? ''}
+          slotProps={{ select: { native: true }, inputLabel: { shrink: true } }} disabled={!categories.currentData}
+          onChange={event => change({ category: event.target.value || undefined })}>
+          <option value="">Todas las categorías</option>
+          {query.category && !categories.currentData?.includes(query.category) && <option value={query.category}>{query.category}</option>}
+          {categories.currentData?.map(category => <option key={category} value={category}>{category}</option>)}
+        </TextField>
+        <TextField className="filter-field" select id="sort" label="Ordenar por" value={`${query.sort}:${query.order}`}
+          slotProps={{ select: { native: true }, inputLabel: { shrink: true } }} onChange={event => {
             const selected = readCatalogueQuery(new URLSearchParams({
               sort: event.target.value.split(':')[0], order: event.target.value.split(':')[1],
             }));
             change({ sort: selected.sort, order: selected.order });
           }}>
-            {sortOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        </div>
+          {sortOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </TextField>
       </section>
 
-      {categories.isError && <div className="categories-notice">
+      {categories.isError && <Alert severity="warning" className="categories-notice">
         <span>No pudimos cargar las categorías.</span>
-        <button className="text-button" type="button" disabled={categories.isFetching}
-          onClick={() => void categories.refetch()}>Reintentar categorías</button>
-      </div>}
+        <Button variant="text" type="button" disabled={categories.isFetching}
+          onClick={() => void categories.refetch()}>Reintentar categorías</Button>
+      </Alert>}
 
       <section className="catalogue-results" aria-labelledby="results-title">
         <div className="results-summary">
-          <h2 id="results-title" ref={resultsHeading} tabIndex={-1}>Productos</h2>
-          <p role="status" aria-live="polite">
+          <Typography component="h2" variant="h2" id="results-title" ref={resultsHeading} tabIndex={-1}>Productos</Typography>
+          <Typography role="status" aria-live="polite">
             {products.isFetching ? 'Cargando productos…' : data ? `${data.total} ${data.total === 1 ? 'producto' : 'productos'}` : ''}
-          </p>
+          </Typography>
         </div>
 
-        {products.isError && <div className="error-state" role="alert">
-          <h3>{unavailable ? 'El catálogo no está disponible' : 'No pudimos cargar los productos'}</h3>
-          <p>{data ? 'Se muestran los últimos resultados disponibles.' : 'Inténtalo de nuevo en unos minutos.'}</p>
-          <button className="button" type="button" disabled={products.isFetching}
-            onClick={() => void products.refetch()}>Reintentar</button>
-        </div>}
+        {products.isError && <Alert severity="error" className="error-state">
+          <AlertTitle component="h3">{unavailable ? 'El catálogo no está disponible' : 'No pudimos cargar los productos'}</AlertTitle>
+          <Typography>{data ? 'Se muestran los últimos resultados disponibles.' : 'Inténtalo de nuevo en unos minutos.'}</Typography>
+          <Button type="button" disabled={products.isFetching}
+            onClick={() => void products.refetch()}>Reintentar</Button>
+        </Alert>}
 
         {!data && products.isFetching && <div className="product-grid" aria-hidden="true">
           {Array.from({ length: 12 }, (_, index) => <div className="product-skeleton" key={index}>
-            <div /><span /><span /><span />
+            <div><Skeleton variant="rectangular" height="100%" /></div>
+            <Skeleton sx={{ mt: 2, width: '90%' }} /><Skeleton width="90%" /><Skeleton width="45%" height={32} />
           </div>)}
         </div>}
 
         {data && data.items.length > 0 && <>
           <div className="product-grid" aria-busy={products.isFetching}>{data.items.map(product => <ProductCard key={product.id} product={product} />)}</div>
           <nav className="pagination" aria-label="Páginas de productos">
-            <button type="button" className="button secondary" disabled={data.page <= 1 || products.isFetching}
-              onClick={() => paginate(data.page - 1)}>Anterior</button>
+            <Button type="button" variant="outlined" disabled={data.page <= 1 || products.isFetching}
+              onClick={() => paginate(data.page - 1)}>Anterior</Button>
             <span>Página {data.page} de {data.totalPages}</span>
-            <button type="button" className="button secondary" disabled={data.page >= data.totalPages || products.isFetching}
-              onClick={() => paginate(data.page + 1)}>Siguiente</button>
+            <Button type="button" variant="outlined" disabled={data.page >= data.totalPages || products.isFetching}
+              onClick={() => paginate(data.page + 1)}>Siguiente</Button>
           </nav>
         </>}
 
         {data && data.items.length === 0 && !products.isError && <div className="empty-state">
-          <h3>{data.total > 0 ? 'Esta página no tiene productos' : 'No encontramos productos'}</h3>
-          <p>{data.total > 0 ? 'Vuelve a la primera página para ver los resultados.' : 'Prueba con otra búsqueda o cambia la categoría.'}</p>
-          <button className="button secondary" type="button" onClick={() => data.total > 0 ? change({ page: 1 }) : setParams({})}>
+          <Typography component="h3" variant="h3">{data.total > 0 ? 'Esta página no tiene productos' : 'No encontramos productos'}</Typography>
+          <Typography>{data.total > 0 ? 'Vuelve a la primera página para ver los resultados.' : 'Prueba con otra búsqueda o cambia la categoría.'}</Typography>
+          <Button variant="outlined" type="button" onClick={() => data.total > 0 ? change({ page: 1 }) : setParams({})}>
             {data.total > 0 ? 'Ir a la primera página' : 'Limpiar filtros'}
-          </button>
+          </Button>
         </div>}
       </section>
     </main>

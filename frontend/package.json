@@ -9,7 +9,10 @@
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@home-furniture/contracts": "0.1.0",
+    "@mui/material": "^9.5.0",
     "@reduxjs/toolkit": "^2.13.0",
     "next": "^16.0.0",
     "react": "^19.0.0",

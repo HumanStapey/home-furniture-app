@@ -48,6 +48,21 @@ test('rejects HTTP, JSON, transport and validation failures without writing', as
   await assert.rejects(importer.import(), /Fake Store/);
 });
 
+test('aborts a stalled request after ten seconds without writing', { timeout: 15_000 }, async t => {
+  // AbortSignal.timeout does not keep the event loop alive.
+  const keepAlive = setTimeout(() => {}, 15_000);
+  t.after(() => clearTimeout(keepAlive));
+  t.mock.method(globalThis, 'fetch', (_url, { signal }) => new Promise((resolve, reject) => {
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  }));
+  let writes = 0;
+  const importer = new ProductsImportService({ importBatch: async () => { writes++; } });
+  const started = performance.now();
+  await assert.rejects(importer.import(), /timeout/);
+  assert.ok(performance.now() - started >= 9_900, 'request aborted before the ten-second deadline');
+  assert.equal(writes, 0);
+});
+
 test('imports a validated batch and passes cancellation to the HTTP request', async t => {
   let received;
   let requestSignal;

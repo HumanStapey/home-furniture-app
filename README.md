@@ -4,7 +4,7 @@ A product explorer for the IKEA Fullstack Developer Technical Challenge, with se
 
 A shopping cart is planned as an extra, with quantity controls, item removal, totals and persistence between visits.
 
-The workspace structure, PostgreSQL persistence, catalogue import, catalogue API and frontend catalogue are in place. Product details and the cart will follow in small, verifiable contributions.
+The workspace structure, PostgreSQL persistence, catalogue import, catalogue API, frontend catalogue and product details are in place. The cart and application Docker packaging will follow in small, verifiable contributions.
 
 ## Prerequisites
 
@@ -68,7 +68,7 @@ The initial migration creates `products` in the default `public` schema; TypeORM
 The monorepo uses npm workspaces. Both applications use strict TypeScript:
 
 ```text
-frontend/           Next.js, React Router and Redux Toolkit
+frontend/           Next.js, React Router, Redux Toolkit and MUI
 backend/            NestJS and TypeORM
 packages/contracts/ Shared catalogue API types used by frontend and backend
 ```
@@ -79,17 +79,25 @@ The shared contracts package reduces duplicate type definitions and keeps the AP
 
 `CartItem` lives in the frontend and contains a product and its quantity. Database entities, Fake Store import types and runtime validation DTOs will remain in the backend.
 
-Next.js with a static export is the best fit for the selected stack. React Router will handle `/products`, `/product/:id` and `/cart`, while Nginx will serve the application.
+Next.js with a static export is the best fit for the selected stack. React Router handles `/products` and `/product/:id`; `/cart` and Nginx hosting remain planned.
 
-RTK Query caches catalogue and category requests in the Redux store. Search, category, sorting and pagination live in the URL to preserve the current view when navigating back or reloading. Requests use the same-origin `/api` path with a ten-second timeout. The development proxy runs through Next.js; production proxying will be provided by Nginx.
+RTK Query caches catalogue, category and individual product requests in the Redux store. Search, category, sorting and pagination live in the URL to preserve the current view when navigating back or reloading. Requests use the same-origin `/api` path with a ten-second timeout. The development proxy runs through Next.js; production proxying will be provided by Nginx.
 
 A Redux slice will manage the cart and persist it in `localStorage`.
 
-The responsive catalogue uses native CSS, labelled HTML controls, keyboard focus indicators, reduced-motion support and accessible loading announcements. It includes skeletons, a retry action, an empty-search state, unavailable-image fallbacks and independent recovery for category failures. Submitting a search or changing a category or sort resets pagination. Invalid URL values are normalized before requests are made.
+The catalogue and product detail use MUI components with a consistent theme, as required by the challenge. `frontend/src/theme.ts` defines the shared palette, typography, shape, button defaults and keyboard focus indicators. `ThemeProvider` and `CssBaseline` apply it throughout the SPA. Layout CSS reads its colour variables from the same theme; `StyledEngineProvider` keeps the style order explicit.
+
+Forms use MUI `TextField`, including native select mode for category and sorting. Buttons, product cards, read-only ratings, skeletons, alerts, typography and navigation links also use MUI. The responsive interface retains labelled controls, visible keyboard focus, reduced-motion support and accessible loading announcements. It includes retry actions, an empty-search state, unavailable-image fallbacks and independent recovery for category failures. Long imported category names wrap within product cards. Submitting a search or changing a category or sort resets pagination. Invalid URL values are normalized before requests are made.
 
 Only results for the current query are displayed. A failed refresh can retain cached results with a visible warning, while a new filter loads its own results. Requests are refreshed after reconnecting, and cached queries older than 60 seconds are refreshed when revisited. Query caches are kept for 60 seconds after their last subscriber leaves.
 
-The interface is in Spanish. Source product content stays in its original language. Prices are presented in USD without currency conversion as a display assumption; Fake Store does not include a currency field in the product contract. Product details and cart actions remain outside this catalogue contribution.
+The interface is in Spanish. Source product content stays in its original language. Prices are presented in USD without currency conversion as a display assumption; Fake Store does not include a currency field in the product contract. Cart actions remain planned.
+
+Each catalogue card links to `/product/:id`. The detail page requests the product from the backend and displays its image, full title, category, USD price, rating and description. It provides loading skeletons, an image fallback, a distinct missing-product state and retry actions for temporary API or network failures. Invalid IDs are rejected before requesting data; valid IDs follow the API's positive 32-bit integer range. A failed refresh hides previously cached details, including when a product now returns 404.
+
+The detail page supports keyboard navigation, focuses the main content when opened and uses a single-column layout on mobile. Returning through its catalogue link preserves the original filters and pagination in browser navigation state; opening a product directly returns to the unfiltered catalogue.
+
+Direct product URLs and reloads work through the Next.js development server. The production static export uses the SPA entry point rather than generating a page for every product ID, so its host must fall back to `/index.html` for `/product/:id`. That production fallback and the `/api` proxy remain part of the upcoming Nginx/Docker step.
 
 The frontend image will use a multi-stage build: Node.js compiles the application, and Nginx serves the static files, supports direct navigation to client routes and forwards `/api` requests to NestJS.
 
@@ -115,7 +123,7 @@ Available endpoints:
 | Parameter | Behaviour | Default |
 | --- | --- | --- |
 | `search` | Literal, case-insensitive search in title and description; up to 200 characters | No search |
-| `category` | Exact category name; up to 200 characters | All categories |
+| `category` | Exact category name, preserved without truncation | All categories |
 | `page` | Integer from 1 to 2147483647 | `1` |
 | `limit` | Integer from 1 to 100 | `12` |
 | `sort` | `id`, `title` or `price` | `id` |
@@ -123,7 +131,7 @@ Available endpoints:
 
 Search and category filters combine. Search whitespace is trimmed; empty search and category values apply no filter. `%` and `_` are literal search characters. Equal sort values are resolved by ascending ID. Pages beyond the last page return an empty list while retaining the total count; no matches return `totalPages: 0`.
 
-Query values are validated with `class-validator` and explicitly transformed with `class-transformer`. Unknown parameters, repeated scalar values, invalid IDs and invalid pagination or sorting return `400`. IDs must be positive 32-bit integers. Missing products return `404` when a local catalogue exists; an empty catalogue returns `503` for all three product endpoints. Unexpected failures return a generic `500` without SQL or stack traces.
+Query values are validated with `class-validator` and explicitly transformed with `class-transformer`. Unknown parameters, repeated scalar values, null characters in text filters, invalid IDs and invalid pagination or sorting return `400`. IDs must be positive 32-bit integers. Missing products return `404` when a local catalogue exists; an empty catalogue returns `503` for all three product endpoints. Unexpected failures return a generic `500` without SQL or stack traces.
 
 The global exception filter returns `{ statusCode, message, error }`; validation messages are arrays and other messages are strings. Swagger documents the query parameters, response models and error statuses.
 
