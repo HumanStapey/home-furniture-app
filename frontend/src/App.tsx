@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Provider } from 'react-redux';
 import { setupListeners } from '@reduxjs/toolkit/query';
-import { BrowserRouter, Link as RouterLink, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Link as RouterLink, NavLink, Navigate, Route, Routes } from 'react-router';
 import { Box, Button, CssBaseline, Link, StyledEngineProvider, ThemeProvider, Typography } from '@mui/material';
 import { store } from './store';
 import { theme } from './theme';
@@ -12,7 +12,12 @@ import { ProductDetailPage } from './features/catalogue/product-detail-page';
 
 function CartLink() {
   const quantity = useAppSelector(state => state.cart.reduce((total, item) => total + item.quantity, 0));
-  return <Link component={RouterLink} to="/cart">Carrito ({quantity})</Link>;
+  return <Link component={NavLink} className="cart-link" to="/cart" underline="none">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+      <path d="M5 7h14l1 14H4L5 7Z" /><path d="M8 8V6a4 4 0 0 1 8 0v2" />
+    </svg>
+    Carrito ({quantity})
+  </Link>;
 }
 
 export default function App() {
@@ -27,9 +32,9 @@ export default function App() {
             <Box component="header" className="site-header">
               <div className="shell header-content">
                 <Link component={RouterLink} className="brand" to="/products" aria-label="Home Furniture, inicio" underline="none">
-                  <span className="brand-mark" aria-hidden="true">hf.</span>Home Furniture
+                  <span className="brand-mark" aria-hidden="true">hf.</span><span className="brand-name">Home Furniture</span>
                 </Link>
-                <nav aria-label="Navegación principal"><Link component={RouterLink} to="/products">Catálogo</Link><CartLink /></nav>
+                <nav aria-label="Navegación principal"><Link component={NavLink} to="/products" underline="none">Catálogo</Link><CartLink /></nav>
               </div>
             </Box>
             <Routes>

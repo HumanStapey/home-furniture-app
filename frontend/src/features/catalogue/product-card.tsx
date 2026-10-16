@@ -16,6 +16,11 @@ export function ProductCard({ product }: { product: Product }) {
             <img src={product.image} alt={product.title} width={240} height={240}
               loading="lazy" decoding="async" onError={() => setFailedImage(product.image)} />
           )}
+          <span className="product-open" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M4 12h15m-6-6 6 6-6 6" />
+            </svg>
+          </span>
         </div>
         <Typography className="product-category">{product.category}</Typography>
         <Typography component="h3" variant="subtitle1" title={product.title}>{product.title}</Typography>

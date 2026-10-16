@@ -4,7 +4,7 @@ import type { Product } from '@home-furniture/contracts';
 import type { CartItem } from './types';
 
 export const CART_STORAGE_KEY = 'home-furniture:cart';
-export const MAX_CART_QUANTITY = 99;
+export const MAX_CART_QUANTITY = 100;
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -37,27 +37,27 @@ export function cartTotalCents(items: readonly CartItem[]): number {
   return items.reduce((total, item) => total + Math.round(item.product.price * 100) * item.quantity, 0);
 }
 
-export function canAddToCart(items: readonly CartItem[], product: Product): boolean {
-  if (!validProduct(product)) return false;
+export function canAddToCart(items: readonly CartItem[], product: Product, quantity: number): boolean {
+  if (!validProduct(product) || !validQuantity(quantity)) return false;
   const current = items.find(item => item.product.id === product.id);
-  const quantity = (current?.quantity ?? 0) + 1;
+  const nextQuantity = (current?.quantity ?? 0) + quantity;
   const total = cartTotalCents(items) - (current ? Math.round(current.product.price * 100) * current.quantity : 0)
-    + Math.round(product.price * 100) * quantity;
-  return validQuantity(quantity) && Number.isSafeInteger(total);
+    + Math.round(product.price * 100) * nextQuantity;
+  return validQuantity(nextQuantity) && Number.isSafeInteger(total);
 }
 
 const cartSlice = createSlice({
   name: 'cart',
   initialState: [] as CartItem[],
   reducers: {
-    addToCart(state, { payload: product }: PayloadAction<Product>) {
-      if (!canAddToCart(state, product)) return;
+    addToCart(state, { payload: { product, quantity } }: PayloadAction<CartItem>) {
+      if (!canAddToCart(state, product, quantity)) return;
       const current = state.find(item => item.product.id === product.id);
       if (current) {
         current.product = product;
-        current.quantity += 1;
+        current.quantity += quantity;
       } else {
-        state.push({ product, quantity: 1 });
+        state.push({ product, quantity });
       }
     },
     setCartQuantity(state, { payload }: PayloadAction<{ id: number; quantity: number }>) {
