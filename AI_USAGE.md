@@ -60,4 +60,4 @@ These are recorded results from development, not a claim that every suite runs o
 
 ## Remaining limits
 
-Direct checks with NVDA or VoiceOver and a final installation from a clean Git clone remain pending. Browser tests use controlled product responses on the development frontend, so they do not replace checks of the complete Docker deployment. Known application limitations are described in the [README](README.md#limitations-and-remaining-checks) and [technical reference](docs/architecture.md).
+Browser tests use controlled product responses on the development frontend, so they do not replace checks of the complete Docker deployment. Known application limitations are described in the [README](README.md#limitations-and-remaining-checks) and [technical reference](docs/architecture.md).

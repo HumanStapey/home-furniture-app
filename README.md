@@ -185,6 +185,42 @@ For example, [this request](http://localhost:8080/api/products?sort=price&order=
 - Products missing from a later import remain in the database. Imports assume stable product IDs and a small catalogue served by one backend instance.
 - Cart prices are saved copies. There is no checkout, stock reservation, server-side cart, or automatic price synchronization. Browser tabs keep separate carts in memory; the last saved change wins.
 - USD is a display assumption, with no currency conversion. The home-interior banner is an original generated image for inspiration, not a representation of the imported products. Its [image and font notes](frontend/public/images/README.md) record provenance and licensing.
-- Chromium accessibility checks covered keyboard use, focus, labels, contrast, reduced motion, narrow layouts, and increased text spacing. Direct checks with screen readers such as NVDA or VoiceOver remain pending, as does installation from a clean Git clone.
+- Chromium accessibility checks covered keyboard use, focus, labels, contrast, reduced motion, narrow layouts, and increased text spacing.
 
 See [AI_USAGE.md](AI_USAGE.md) for where AI assisted development, which suggestions were accepted or changed, and how the work was verified.
+
+## Path to production (proposed)
+
+The starting assumption is a small public catalogue, modest traffic, one region, and one backend instance. The limitations above still apply: Fake Store API supplies the data, prices are displayed in USD, and the anonymous cart stays in the browser without checkout or stock reservation. The steps below are proposed work; the repository currently provides local Docker deployment and CI validation.
+
+### Initial hosting and security
+
+Reuse the frontend and backend Docker images on a managed container service, with PostgreSQL on a private network and separate staging and production databases. Preserve the single public origin: serve the static frontend and forward `/api` to the internal backend. Adapt Nginx's Docker-specific DNS resolver and upstream address to the selected hosting platform, and preserve the fallback for direct client routes.
+
+Before public access:
+
+- Terminate HTTPS at the hosting platform's ingress, keep the database private, and trust forwarded headers only from that ingress. Add request rate limits, size limits, and appropriate browser security headers, testing the content security policy against MUI and external product images. These controls follow the [OWASP REST security guidance](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html).
+- Inject production credentials through the platform's secret manager. Add verified TLS support to the TypeORM database configuration; the current connection settings do not configure it. Give the running app only the database permissions needed to read and import products, with separate credentials for schema migrations.
+- Retain input validation and safe error responses, and scan dependencies and container images as part of release checks. Catalogue reads can remain public; future administrative or account operations would require authentication and authorization.
+
+### Release and recovery
+
+After CI passes, build container images once, tag them with the commit identifier, and deploy those exact images to staging. Run migrations as one controlled deployment step, replacing the backend image's current migration-on-startup command. Use backward-compatible schema changes so the previous application version can still run during a release.
+
+Before promoting the same images to production, verify the complete deployment: initial import, catalogue and detail routes, cart persistence, API errors, and proxy recovery. The browser suite uses controlled API responses, so it does not cover this deployment path. Complete the pending clean-clone installation and screen-reader checks as well.
+
+Configure automated database backups and practise restoring them into a separate database, following [PostgreSQL's backup and restore guidance](https://www.postgresql.org/docs/current/backup.html). Agree acceptable data loss and recovery time before launch. Keep the previous application images available for rollback; a schema rollback or database restore requires a separate reviewed recovery decision. One backend instance remains a single point of failure and may require a brief maintenance window for releases.
+
+### Monitoring and operational readiness
+
+- Centralize JSON logs with request identifiers, HTTP status, duration, and import outcomes, excluding credentials and sensitive payloads. Correlate requests across the proxy and API; [OpenTelemetry's logging model](https://opentelemetry.io/docs/concepts/signals/logs/) provides a path to add trace correlation when needed.
+- Keep process liveness separate from readiness. The current `/api` health response does not query PostgreSQL or confirm that products exist. Add readiness checks for database access and an initial catalogue, and track import freshness separately so an upstream outage does not take a usable saved catalogue out of service.
+- Monitor API latency and error rates, database connections and capacity, frontend failures, and the time since the last successful import. Add external checks for a real catalogue request, alerts with an owner, and short recovery instructions for database failures, stale imports, and failed releases. Set alert thresholds from staging measurements and agreed service objectives.
+
+### Scalability and later evolution
+
+Measure catalogue size, query times, and resource use before adding infrastructure. Start by sizing the API and database appropriately and delivering static assets through a CDN if traffic warrants it. Use query plans to guide indexes or search changes; the current substring search and offset pagination suit a small catalogue.
+
+Before adding backend replicas, move startup imports to one scheduled worker or coordinate them with a database lock, and keep migrations outside application startup. Define an acceptable refresh interval and a policy for products removed upstream. Larger imports would also need response-size limits and batching. This ordering avoids duplicate import work while keeping the initial deployment simple.
+
+If the scope expands to real purchases, add server-owned carts, current price and stock validation, and secure order and payment flows before accepting orders. If organic search becomes a requirement, revisit the current client-rendered product pages so product content is available in the initial HTML. Both changes introduce additional product and operational responsibilities beyond the current catalogue assumptions.
