@@ -179,13 +179,22 @@ With Docker running, the API is available under `http://localhost:8080/api`. [Sw
 
 For example, [this request](http://localhost:8080/api/products?sort=price&order=asc&page=1&limit=12) returns the first page sorted by price. The [API reference](docs/architecture.md#api-reference) explains all parameters and error responses.
 
-## Limitations and remaining checks
+## Assumptions and limitations
 
-- The first import needs Fake Store API to be available. Products are refreshed at backend startup or by a manual import, so stored information can become outdated.
-- Products missing from a later import remain in the database. Imports assume stable product IDs and a small catalogue served by one backend instance.
+### Assumptions
+
+- The app is a public catalogue with an anonymous demo cart. Browsing and saving products do not require an account.
+- Fake Store API is the catalogue source, including its original product categories and language; imported products are not restricted to furniture.
+- We assume that the Fake Store API catalogue does not change or receive new products during this challenge. Therefore, automatic import runs only at backend startup, with retries on failure and no periodic synchronization after success. The manual seed command remains available for development and recovery.
+- Source prices are treated as USD. The interface is in Spanish, while imported product information keeps its original language.
+- The catalogue is small enough to import in memory and serve from one backend instance. Source product IDs are assumed to remain stable between imports.
+
+### Limitations
+
+- The first import needs Fake Store API to be available. If the source catalogue changes despite the assumption above, those changes are only picked up at the next backend startup or through a manual import.
+- Products missing from a later import remain in the database.
 - Cart prices are saved copies. There is no checkout, stock reservation, server-side cart, or automatic price synchronization. Browser tabs keep separate carts in memory; the last saved change wins.
-- USD is a display assumption, with no currency conversion. The home-interior banner is an original generated image for inspiration, not a representation of the imported products. Its [image and font notes](frontend/public/images/README.md) record provenance and licensing.
-- Chromium accessibility checks covered keyboard use, focus, labels, contrast, reduced motion, narrow layouts, and increased text spacing.
+- There is no currency conversion. The home-interior banner is an original generated image for inspiration, not a representation of the imported products. Its [image and font notes](frontend/public/images/README.md) record provenance and licensing.
 
 See [AI_USAGE.md](AI_USAGE.md) for where AI assisted development, which suggestions were accepted or changed, and how the work was verified.
 
@@ -207,7 +216,7 @@ Before public access:
 
 After CI passes, build container images once, tag them with the commit identifier, and deploy those exact images to staging. Run migrations as one controlled deployment step, replacing the backend image's current migration-on-startup command. Use backward-compatible schema changes so the previous application version can still run during a release.
 
-Before promoting the same images to production, verify the complete deployment: initial import, catalogue and detail routes, cart persistence, API errors, and proxy recovery. The browser suite uses controlled API responses, so it does not cover this deployment path. Complete the pending clean-clone installation and screen-reader checks as well.
+Before promoting the same images to production, verify the complete deployment: initial import, catalogue and detail routes, cart persistence, API errors, and proxy recovery. The browser suite uses controlled API responses, so it does not cover this deployment path.
 
 Configure automated database backups and practise restoring them into a separate database, following [PostgreSQL's backup and restore guidance](https://www.postgresql.org/docs/current/backup.html). Agree acceptable data loss and recovery time before launch. Keep the previous application images available for rollback; a schema rollback or database restore requires a separate reviewed recovery decision. One backend instance remains a single point of failure and may require a brief maintenance window for releases.
 

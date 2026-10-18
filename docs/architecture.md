@@ -93,7 +93,9 @@ These commands compile the backend first. The data source is `backend/src/databa
 
 ## Product import and failures
 
-The backend imports products in the background at every startup, even if local products already exist. It stops retrying after its first successful import. A manual seed command uses the same importer for one attempt and exits with an error on failure.
+For this challenge, the Fake Store API catalogue is assumed to remain unchanged, so no periodic synchronization is scheduled after a successful import. This is a project assumption, not a guarantee from the upstream service.
+
+The backend imports products in the background at every startup, even if local products already exist. It stops retrying after its first successful import. A manual seed command remains available for development and recovery; it uses the same importer for one attempt and exits with an error on failure.
 
 The import process:
 
