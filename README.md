@@ -7,16 +7,16 @@ The interface is in Spanish. Product information comes from Fake Store API and k
 ## What you can do
 
 - Search product titles and descriptions, filter by category, and sort or move between pages.
-- Open a product and return to the same catalogue filters and page.
+- Open a product from the catalogue and return to the same filters and page. A directly opened product link returns to the unfiltered catalogue.
 - Add products to the cart, change quantities from 1 to 100 per product, and remove items.
-- Reload the page and keep your cart in the same browser, when browser storage is available.
+- Reload the page and keep your cart in the same browser profile and website origin (protocol, host, and port), when browser storage is available. The local and Docker websites have separate carts.
 - Use the app on desktop or mobile, including keyboard navigation and visible focus indicators.
 
 ## Run the app with Docker
 
 ### 1. Prepare your environment
 
-Install Git and Docker Desktop, and make sure Docker Desktop is running. Internet access is needed to download dependencies and import the initial catalogue. Node.js is only needed if you want to develop locally or run the npm test commands.
+Install Git and Docker Desktop with Compose v2, and make sure Docker Desktop is running. Internet access is needed to download container images and dependencies and import the initial catalogue. Node.js is only needed if you want to develop locally or run the npm test commands.
 
 Clone this repository and open a terminal in its root folder: the folder containing `package.json` and `compose.yaml`. All commands below run from that folder.
 
@@ -39,7 +39,7 @@ Keep an existing `.env` if you have already configured the app. The example valu
 ### 2. Start the complete application
 
 ```sh
-docker-compose up --build
+docker compose up --build
 ```
 
 Docker builds and starts the website, backend API, and database. You do not need to install npm packages on your computer for this step. Without --build, Docker may reuse existing images that contain an older version of the code.
@@ -48,9 +48,9 @@ Docker builds and starts the website, backend API, and database. You do not need
 
 Go to [http://localhost:8080/products](http://localhost:8080/products). You can also open [the cart](http://localhost:8080/cart) or [the interactive API documentation](http://localhost:8080/api/docs).
 
-On first startup, the backend creates the database tables and imports products in the background. The catalogue may briefly show a temporary-unavailability message. If Fake Store API is unavailable, the backend retries 60 seconds after each failed import. Once products have been saved, the app can serve them even if the source is unavailable.
+The Docker backend applies pending database migrations before starting the API. At every backend startup, including when products are already saved, it imports products in the background. Until the first successful import, product endpoints return `503` and the catalogue shows a temporary-unavailability message. Any failed startup import is retried 60 seconds after the failure, until one succeeds. Saved catalogue data remains available during upstream outages as long as the backend and database are available; product images still depend on their external hosts.
 
-A healthy Docker status means the app and API are reachable; it does not confirm that the first product import has finished.
+The frontend and backend Docker health checks request `/api`, which returns a static API name without querying PostgreSQL. The database service has its own `pg_isready` check, but none of these checks confirms that products exist or that catalogue queries succeed.
 
 ### Common commands
 
@@ -76,7 +76,7 @@ The root `.env.example` lists the database settings. Copying it gives you these 
 | `DB_USER` | Database username | `home_furniture` |
 | `DB_PASSWORD` | Database password | `local_development_only` |
 
-Docker connects the backend to `db:5432` internally. Keep the host values above for local development; Compose overrides the backend's host and port inside Docker. The database is exposed only on your computer at `localhost:15432`, and the Docker backend has no separate public port.
+Docker connects the backend to `db:5432` internally. Keep the host values above for local development; Compose overrides the backend's host and port inside Docker. The database is bound to `127.0.0.1` at the configured `DB_PORT` (default `15432`), and the Docker backend has no separate public port. The website is also bound to loopback, at `127.0.0.1:8080`.
 
 Database credentials are created when the database volume is first initialized. Editing `.env` later does not change credentials already stored in that volume. Settings supplied by your shell take precedence over `.env` when running the backend locally.
 
@@ -133,7 +133,11 @@ Install the browser once before running the browser tests:
 npx playwright install chromium
 ```
 
-The browser tests start the development frontend if needed and use controlled API responses. They do not verify the complete Docker deployment. Database storage tests use temporary schemas and clean them up. The Docker recovery test creates temporary containers and a network, then removes them without changing the application database. `DOCKER_BASE_URL` can point the Docker smoke tests at another address; the default is `http://localhost:8080`.
+The browser tests start the development frontend if needed and use controlled API responses. They do not verify the complete Docker deployment.
+
+Database storage tests use temporary schemas and clean them up; the startup integration test connects using the configured database settings. Import integration tests mock Fake Store API responses, so they do not verify live upstream availability or compatibility.
+
+The Docker recovery test uses a minimal HTTP server in the backend image to check Nginx DNS recovery; it does not run NestJS or test database recovery. It creates temporary containers and a network, then removes them without changing the application database. `DOCKER_BASE_URL` can point the Docker smoke tests at another address; the default is `http://localhost:8080`.
 
 Build output goes to `frontend/out` and `backend/dist`. Test commands can be run separately; `npm test` does not run browser, database integration, or Docker tests.
 
@@ -141,7 +145,7 @@ GitHub Actions runs [the CI workflow](.github/workflows/ci.yml) on every push an
 
 ## How the app works
 
-The browser uses our backend API to read products saved in PostgreSQL. Fake Store API is used only by the backend's import process. It is not called directly by the frontend to fetch catalogue data.
+The browser uses our backend API to read products saved in PostgreSQL. Catalogue JSON from Fake Store API is fetched only by the backend's import process. Product image URLs are stored as supplied by the source, and the browser loads those images directly; the app does not download or proxy them.
 
 ```mermaid
 flowchart LR
@@ -156,7 +160,7 @@ flowchart LR
     Import -->|Validates and saves| DB
 ```
 
-Nginx serves the website and forwards API requests in Docker. During local development, Next.js serves the website and forwards those requests instead.
+Next.js builds a static export of a client-rendered React app. React Router handles navigation, and product content loads after JavaScript starts; it is absent from the initial HTML. Nginx serves the website and forwards API requests in Docker, with an HTML fallback for direct client routes. During local development, Next.js serves the website and forwards those requests instead.
 
 | Folder | Responsibility |
 | --- | --- |
@@ -185,15 +189,17 @@ For example, [this request](http://localhost:8080/api/products?sort=price&order=
 
 - The app is a public catalogue with an anonymous demo cart. Browsing and saving products do not require an account.
 - Fake Store API is the catalogue source, including its original product categories and language; imported products are not restricted to furniture.
-- We assume that the Fake Store API catalogue does not change or receive new products during this challenge. Therefore, automatic import runs only at backend startup, with retries on failure and no periodic synchronization after success. The manual seed command remains available for development and recovery.
+- For this challenge, we assume the Fake Store API catalogue remains unchanged; this is a scope assumption, not an upstream guarantee. The backend nevertheless imports at every startup, even with an existing catalogue, retrying failures until success. There is no periodic synchronization after success; the manual seed command makes a separate import attempt.
 - Source prices are treated as USD. The interface is in Spanish, while imported product information keeps its original language.
-- The catalogue is small enough to import in memory and serve from one backend instance. Source product IDs are assumed to remain stable between imports.
+- The catalogue is assumed to be small enough for an in-memory import and database substring search with offset pagination; this is not a measured capacity guarantee. Compose defines one backend service, and imports have no coordination across replicas or simultaneous manual seed runs. Source product IDs are assumed to remain stable because they are the database primary keys and cart item identities.
 
 ### Limitations
 
-- The first import needs Fake Store API to be available. If the source catalogue changes despite the assumption above, those changes are only picked up at the next backend startup or through a manual import.
-- Products missing from a later import remain in the database.
-- Cart prices are saved copies. There is no checkout, stock reservation, server-side cart, or automatic price synchronization. Browser tabs keep separate carts in memory; the last saved change wins.
+- The first import needs a reachable source returning a valid, nonempty catalogue. The entire batch is validated before a transactional upsert; failed validation or writes preserve the saved catalogue. New and changed products are picked up only by a successful startup or manual import. The interface's retry buttons repeat backend reads and do not trigger an import.
+- Products missing from a later import remain in the database. Imports update records by source ID; an upstream ID reused for a different product would replace that record.
+- Saved catalogue data does not make the app fully offline: reads still need the backend and PostgreSQL, and product images need their external hosts. Failed images show a placeholder.
+- Cart prices and other product fields are saved copies. Re-adding an existing item replaces its saved product data, including the price for all units, with the product data currently loaded in the detail page; changing quantity alone does not refresh it. There is no checkout, stock reservation, server-side cart, or automatic price synchronization.
+- Cart persistence is limited to `localStorage` for one browser profile and origin; it does not follow an account or device. Invalid saved data restores an empty cart, and blocked or full storage leaves changes in memory only. Browser tabs do not synchronize their in-memory carts; the last saved change wins.
 - There is no currency conversion. The home-interior banner is an original generated image for inspiration, not a representation of the imported products. Its [image and font notes](frontend/public/images/README.md) record provenance and licensing.
 
 See [AI_USAGE.md](AI_USAGE.md) for where AI assisted development, which suggestions were accepted or changed, and how the work was verified.
